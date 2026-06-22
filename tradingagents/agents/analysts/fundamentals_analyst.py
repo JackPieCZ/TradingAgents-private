@@ -11,69 +11,12 @@ from tradingagents.agents.utils.agent_utils import (
 from tradingagents.dataflows.config import get_config
 
 
-def create_fundamentals_analyst_exchange(llm):
-    def fundamentals_analyst_node_exchange(state):
-        current_date = state["trade_date"]
-        instrument_context = build_instrument_context(state["company_of_interest"])
-
-        tools = [
-            get_fundamentals,
-            get_balance_sheet,
-            get_cashflow,
-            get_income_statement,
-        ]
-
-        system_message = (
-            "You are a researcher tasked with analyzing fundamental information over the past week about a company. Please write a comprehensive report of the company's fundamental information such as financial documents, company profile, basic company financials, and company financial history to gain a full view of the company's fundamental information to inform traders. Make sure to include as much detail as possible. Provide specific, actionable insights with supporting evidence to help traders make informed decisions."
-            + " Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read."
-            + " Use the available tools: `get_fundamentals` for comprehensive company analysis, `get_balance_sheet`, `get_cashflow`, and `get_income_statement` for specific financial statements."
-            + get_language_instruction(),
-        )
-
-        prompt = ChatPromptTemplate.from_messages(
-            [
-                (
-                    "system",
-                    "You are a helpful AI assistant, collaborating with other assistants."
-                    " Use the provided tools to progress towards answering the question."
-                    " If you are unable to fully answer, that's OK; another assistant with different tools"
-                    " will help where you left off. Execute what you can to make progress."
-                    " If you or any other assistant has the FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** or deliverable,"
-                    " prefix your response with FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** so the team knows to stop."
-                    " You have access to the following tools: {tool_names}.\n{system_message}"
-                    "For your reference, the current date is {current_date}. {instrument_context}",
-                ),
-                MessagesPlaceholder(variable_name="messages"),
-            ]
-        )
-
-        prompt = prompt.partial(system_message=system_message)
-        prompt = prompt.partial(tool_names=", ".join([tool.name for tool in tools]))
-        prompt = prompt.partial(current_date=current_date)
-        prompt = prompt.partial(instrument_context=instrument_context)
-
-        chain = prompt | llm.bind_tools(tools)
-
-        result = chain.invoke({"messages": state["messages"]})
-
-        report = ""
-
-        if len(result.tool_calls) == 0:
-            report = result.content
-
-        return {
-            "messages": [result],
-            "fundamentals_report": report,
-        }
-
-    return fundamentals_analyst_node_exchange
-
 
 def create_fundamentals_analyst(llm, tools):
     def fundamentals_analyst_node(state):
         delivery_period = state.get("delivery_period", state.get("company_of_interest", ""))
         market_area = state.get("market_area", "CZ")
-        current_date = state.get("trade_date", "")
+        trade_timestamp = state.get("trade_date", "")
         system_message = (
             "Focus on wind and solar forecast revisions since the day-ahead auction. "
             "For CZ: solar is the dominant variable force (~2.5 GW installed), wind is negligible (~350 MW). "
@@ -89,13 +32,12 @@ and what the day-ahead market priced in — are the PRIMARY source of alpha in i
 MARKET CONTEXT:
 - Delivery period: {delivery_period}
 - Market area: {market_area}
-- Current time: {current_date}
+- Trade timestamp: {trade_timestamp}
 
 Few tips to guide your analysis: {system_message}
 
 ANALYTICAL WORKFLOW:
-1. Retrieve the TSO's official generation forecast (get_generation_forecast) to see what the
-   day-ahead market was priced on
+1. Retrieve the TSO's official generation forecast (xref_generation_forecast (include both CZ and DE-LU) get_generation_forecast (only CZ)) to see what the day-ahead market was priced on
 2. Retrieve forecast updates (get_forecast_updates) to see intraday forecast revisions
 3. Retrieve current weather forecasts (get_wind_forecast, get_solar_forecast)
 4. Retrieve general weather conditions (get_weather_forecast) for demand-side effects
@@ -135,6 +77,16 @@ OUTPUT FORMAT: Your report must include:
 3. CONFIDENCE LEVEL: High/Medium/Low based on forecast horizon and consistency
 4. KEY UNCERTAINTIES: What could invalidate this signal (e.g., forecast model disagreement)
 
+TOOL OUTPUT FORMATS:
+- get_generation_forecast → CSV. Columns: Hour (CET), Wind Onshore MW, Wind Offshore MW, Solar MW (TSO day-ahead forecast).
+- get_wind_forecast → CSV. Hourly weather model data. Columns include: Hour (CET), Wind Speed 80m m/s, Wind Speed 120m m/s, Wind Direction degrees, Wind Gusts m/s.
+- get_solar_forecast → CSV. Hourly data. Columns include: Hour (CET), GHI W/m², DNI W/m², DHI W/m², Tilted Irradiance W/m², Cloud Cover percent.
+- get_forecast_updates → CSV. Columns: Hour (CET), then updated Solar MW forecasts with delta columns showing revision since day-ahead.
+- get_weather_forecast → CSV. Columns: Hour (CET), Temperature °C, Precipitation mm, Cloud Cover percent, Pressure hPa, Humidity percent.
+- get_historical_forecast → CSV. Same format as get_weather_forecast but from yesterday's model run. Compare with today's forecast to find revisions.
+
+All outputs start with a # header line and # metadata, followed by CSV data.
+
 You have access to the following tools: {tool_names}."""
 
         prompt = ChatPromptTemplate.from_messages([
@@ -144,7 +96,7 @@ You have access to the following tools: {tool_names}."""
         prompt = prompt.partial(
             system_message=system_message,
             tool_names=", ".join([tool.name for tool in tools]),
-            current_date=current_date,
+            trade_timestamp=trade_timestamp,
             delivery_period=delivery_period,
             market_area=market_area,
         )

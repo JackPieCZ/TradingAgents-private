@@ -22,6 +22,10 @@ from tradingagents.agents.utils.energy_price_tools import (
     get_day_ahead_prices, get_intraday_prices,
     get_intraday_auction_prices, get_balancing_data
 )
+from tradingagents.agents.utils.cross_reference_tools import (
+    xref_day_ahead_prices, xref_actual_generation, xref_generation_forecast,
+    xref_load_forecast, xref_residual_load, xref_balancing_data, xref_actual_load
+)
 from tradingagents.dataflows.config import set_config
 from tradingagents.agents.utils.agent_states import (
     AgentState,
@@ -40,8 +44,6 @@ from pathlib import Path
 import json
 from datetime import datetime, timedelta
 from typing import Dict, Any, Tuple, List, Optional
-
-import yfinance as yf
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +178,8 @@ class TradingAgentsGraph:
                     # # Technical indicators
                     # get_indicators,
                     get_day_ahead_prices, get_intraday_prices,
-                    get_intraday_auction_prices, get_balancing_data
+                    get_intraday_auction_prices, get_balancing_data,
+                    xref_day_ahead_prices, xref_balancing_data
                 ]
             ),
             "social": ToolNode(  # System State Analyst
@@ -184,7 +187,8 @@ class TradingAgentsGraph:
                     # # News tools for social media analysis
                     # get_news,
                     get_residual_load, get_actual_generation, get_actual_load,
-                    get_load_forecast, get_cross_border_flows, get_outage_notifications
+                    get_load_forecast, get_cross_border_flows, get_outage_notifications,
+                    xref_residual_load, xref_actual_generation, xref_load_forecast, xref_actual_load
                 ]
             ),
             "news": ToolNode(  # Energy News & Regulatory Analyst
@@ -193,7 +197,8 @@ class TradingAgentsGraph:
                     # get_news,
                     # get_global_news,
                     # get_insider_transactions,
-                    get_outage_notifications, get_actual_load, get_load_forecast, get_cross_border_flows
+                    get_outage_notifications, get_actual_load, get_load_forecast, get_cross_border_flows,
+                    xref_actual_load
                 ]
             ),
             "fundamentals": ToolNode(  # Weather & Forecast Analyst
@@ -204,8 +209,9 @@ class TradingAgentsGraph:
                     # get_cashflow,
                     # get_income_statement,
                     get_wind_forecast, get_solar_forecast,
-                    get_generation_forecast, #get_forecast_updates,
-                    get_weather_forecast, get_historical_forecast
+                    get_generation_forecast, get_forecast_updates,
+                    get_weather_forecast, get_historical_forecast,
+                    xref_generation_forecast
                 ]
             ),
         }
@@ -416,46 +422,6 @@ class TradingAgentsGraph:
             )
 
         return final_state, self.process_signal(final_state["final_trade_decision"])
-
-    def _log_state_exchange(self, trade_date, final_state):
-        """Log the final state to a JSON file."""
-        self.log_states_dict[str(trade_date)] = {
-            "company_of_interest": final_state["company_of_interest"],
-            "trade_date": final_state["trade_date"],
-            "market_report": final_state["market_report"],
-            "sentiment_report": final_state["sentiment_report"],
-            "news_report": final_state["news_report"],
-            "fundamentals_report": final_state["fundamentals_report"],
-            "investment_debate_state": {
-                "bull_history": final_state["investment_debate_state"]["bull_history"],
-                "bear_history": final_state["investment_debate_state"]["bear_history"],
-                "history": final_state["investment_debate_state"]["history"],
-                "current_response": final_state["investment_debate_state"][
-                    "current_response"
-                ],
-                "judge_decision": final_state["investment_debate_state"][
-                    "judge_decision"
-                ],
-            },
-            "trader_investment_decision": final_state["trader_investment_plan"],
-            "risk_debate_state": {
-                "aggressive_history": final_state["risk_debate_state"]["aggressive_history"],
-                "conservative_history": final_state["risk_debate_state"]["conservative_history"],
-                "neutral_history": final_state["risk_debate_state"]["neutral_history"],
-                "history": final_state["risk_debate_state"]["history"],
-                "judge_decision": final_state["risk_debate_state"]["judge_decision"],
-            },
-            "investment_plan": final_state["investment_plan"],
-            "final_trade_decision": final_state["final_trade_decision"],
-        }
-
-        # Save to file
-        directory = Path(self.config["results_dir"]) / self.ticker / "TradingAgentsStrategy_logs"
-        directory.mkdir(parents=True, exist_ok=True)
-
-        log_path = directory / f"full_states_log_{trade_date}.json"
-        with open(log_path, "w", encoding="utf-8") as f:
-            json.dump(self.log_states_dict[str(trade_date)], f, indent=4)
 
     def _log_state(self, trade_date, final_state):
         self.log_states_dict[str(trade_date)] = {

@@ -1,3 +1,5 @@
+from venv import logger
+
 from langchain_core.messages import HumanMessage, RemoveMessage
 
 # Import tools from separate utility files
@@ -35,7 +37,20 @@ def get_language_instruction() -> str:
 
 
 def build_instrument_context(ticker: str) -> str:
-    """Describe the exact instrument so agents preserve exchange-qualified tickers."""
+    """Describe the instrument or delivery period for agents to reference.
+
+    For energy markets, the 'ticker' is the delivery_period identifier
+    (e.g. '2024-06-15' or '2024-06-15T14:00'). For stock markets, it's
+    the ticker symbol (e.g. 'NVDA', 'AAPL.TO').
+    """
+    # Detect if this looks like an energy delivery period (date-like) or a stock ticker
+    if ticker and ticker[0].isdigit() and "-" in ticker:
+        logger.info("Identified energy market context based on ticker format. Using delivery period instruction.")
+        return (
+            f"The delivery period to analyze is `{ticker}`. "
+            "Use this identifier in every tool call and report."
+        )
+    logger.info("Identified stock market context based on ticker format. Using exchange-qualified ticker instruction.")
     return (
         f"The instrument to analyze is `{ticker}`. "
         "Use this exact ticker in every tool call, report, and recommendation, "
@@ -62,8 +77,7 @@ def create_msg_delete():
             placeholder_text = (
                 "Previous analysts have reported the following key findings:\n\n"
                 f"{context}\n\n"
-                "Use these findings as context for your own analysis. "
-                "Continue with your assigned tools."
+                "Use these findings as context for your own analysis. Continue with your assigned tools."
             )
         else:
             placeholder_text = "Continue"

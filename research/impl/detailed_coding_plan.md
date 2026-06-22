@@ -20,7 +20,6 @@
 
 ---
 
-<a id="bug-5"></a>
 ## 1. BUG-5: Fix `default_config.py` Vendor Routing
 
 **File**: `tradingagents/default_config.py`
@@ -103,7 +102,6 @@ After all three changes, the `tool_vendors` dict in `default_config.py` should l
 
 ---
 
-<a id="bug-6"></a>
 ## 2. BUG-6: Fix `entsoe_client.py` Intraday Prices Stub
 
 **File**: `tradingagents/dataflows/entsoe_client.py`
@@ -194,6 +192,7 @@ def query_intraday_prices(
 ---
 
 <a id="bug-7"></a>
+
 ## 3. BUG-7: Expand News Analyst Toolkit
 
 **Problem**: The News & Regulatory Analyst only has 2 tools (`get_outage_notifications`, `get_actual_load`), but its prompt references analyzing demand surprises and its role requires understanding cross-border constraints. Additionally, `get_outage_notifications` in `energy_news_tools.py` calls the exact same underlying function (`entsoe_outages`) as `get_outages` in `system_data_tools.py` — they're duplicates.
@@ -379,6 +378,7 @@ After these changes:
 ---
 
 <a id="part-ii"></a>
+
 ## 4. Part II: Fix Inter-Analyst Context Flow (BUG-4)
 
 **Problem**: After each analyst finishes, `create_msg_delete()` wipes ALL messages and replaces them with `HumanMessage(content="Continue")`. The next analyst starts with zero context from previous analysts. Each analyst works in complete isolation.
@@ -655,6 +655,7 @@ After these changes:
 ---
 
 <a id="part-iii"></a>
+
 ## 5. Part III: Wire Unused Tools & Cross-Referencing
 
 ### Step 5.1 — Wire `get_intraday_prices_period` to the Price & Technical Analyst
@@ -814,6 +815,7 @@ The implementation plan mentions creating a `route_to_all_vendors()` function to
 ---
 
 <a id="part-iv"></a>
+
 ## 6. Part IV: Add Tool Output Format Descriptions to Analyst Prompts
 
 **Problem**: Agents don't know what their tools' output looks like. They don't know the CSV column names or units, leading to potential misinterpretation of data.
@@ -913,6 +915,7 @@ You have access to the following tools: {tool_names}."""
 ---
 
 <a id="part-v"></a>
+
 ## 7. Part V: Specific File-Level Issues
 
 ### Step 7.1 — (Issue 5.2) Update report labels in `cli/main.py`

@@ -10,15 +10,15 @@ and outages — to classify the current market regime and identify structural pr
 MARKET CONTEXT:
 - Delivery period: {delivery_period}
 - Market area: {market_area}
-- Current time: {current_date}
+- Trade timestamp: {trade_timestamp}
 
 ANALYTICAL WORKFLOW:
-1. Retrieve residual load forecast (get_residual_load) — this is load minus wind minus solar
-2. Retrieve actual generation breakdown (get_actual_generation) — assess merit order position
-2b. Retrieve actual load (get_actual_load) — cross-check residual load and identify forecast errors
-2c. Retrieve load forecast (get_load_forecast) — identify recent forecast revisions and volatility
-3. Retrieve cross-border flows (get_cross_border_flows) — assess FBMC congestion and import/export situation
-4. Retrieve outages (get_outage_notifications) — unavailable capacity
+1. Retrieve residual load forecast (xref_residual load (include both CZ and DE-LU) get_residual_load (only CZ)) — this is load minus wind minus solar
+2. Retrieve actual generation breakdown (xref_actual_generation (include both CZ and DE-LU)get_actual_generation (only CZ)) — assess merit order position
+3. Retrieve actual load (xref_actual_load (include both CZ and DE-LU) get_actual_load (only CZ)) — cross-check residual load and identify forecast errors
+4. Retrieve load forecast (xref_load_forecast (include both CZ and DE-LU) get_load_forecast (only CZ) — identify recent forecast revisions and volatility
+5. Retrieve cross-border flows (get_cross_border_flows) — assess FBMC congestion and import/export situation
+6. Retrieve outages (get_outage_notifications) — unavailable capacity
 
 REGIME CLASSIFICATION:
 You MUST classify the current regime as one of:
@@ -68,68 +68,25 @@ OUTPUT FORMAT:
 3. DIRECTIONAL BIAS: Does system state favor higher or lower prices vs day-ahead?
 4. MERIT ORDER ASSESSMENT: Is the merit order curve steep or flat at current operating point?
 
+TOOL OUTPUT FORMATS:
+- get_residual_load → CSV. Columns: Hour (CET), Total Load MW, Wind MW, Solar MW, Residual Load MW. Residual = Total - Wind - Solar.
+- get_actual_generation → CSV. Columns: Hour (CET) and one column per fuel type (e.g. Lignite MW, Nuclear MW, Gas MW, Wind MW, Solar MW, etc.).
+- get_actual_load → CSV. Columns: Hour (CET), Actual Load MW. Compare against day-ahead forecast for demand surprises.
+- get_load_forecast → CSV. Columns: Hour (CET), Forecasted Load MW.
+- get_cross_border_flows → CSV. Columns: Hour (CET), then one column per border (e.g. CZ→DE MW, DE→CZ MW). Positive = export, Negative = import (convention may vary).
+- get_outage_notifications → Text summary of planned/unplanned outages with plant name, type, MW unavailable, start/end times.
+
+All outputs start with a # header line and # metadata, followed by CSV data.
+
 You have access to the following tools: {tool_names}."""
 
-
-def create_social_media_analyst_exchange(llm):
-    def social_media_analyst_node_exchange(state):
-        current_date = state["trade_date"]
-        instrument_context = build_instrument_context(state["company_of_interest"])
-
-        tools = [
-            get_news,
-        ]
-
-        system_message = (
-            "You are a social media and company specific news researcher/analyst tasked with analyzing social media posts, recent company news, and public sentiment for a specific company over the past week. You will be given a company's name your objective is to write a comprehensive long report detailing your analysis, insights, and implications for traders and investors on this company's current state after looking at social media and what people are saying about that company, analyzing sentiment data of what people feel each day about the company, and looking at recent company news. Use the get_news(query, start_date, end_date) tool to search for company-specific news and social media discussions. Try to look at all sources possible from social media to sentiment to news. Provide specific, actionable insights with supporting evidence to help traders make informed decisions."
-            + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read."""
-            + get_language_instruction()
-        )
-
-        prompt = ChatPromptTemplate.from_messages(
-            [
-                (
-                    "system",
-                    "You are a helpful AI assistant, collaborating with other assistants."
-                    " Use the provided tools to progress towards answering the question."
-                    " If you are unable to fully answer, that's OK; another assistant with different tools"
-                    " will help where you left off. Execute what you can to make progress."
-                    " If you or any other assistant has the FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** or deliverable,"
-                    " prefix your response with FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** so the team knows to stop."
-                    " You have access to the following tools: {tool_names}.\n{system_message}"
-                    "For your reference, the current date is {current_date}. {instrument_context}",
-                ),
-                MessagesPlaceholder(variable_name="messages"),
-            ]
-        )
-
-        prompt = prompt.partial(system_message=system_message)
-        prompt = prompt.partial(tool_names=", ".join([tool.name for tool in tools]))
-        prompt = prompt.partial(current_date=current_date)
-        prompt = prompt.partial(instrument_context=instrument_context)
-
-        chain = prompt | llm.bind_tools(tools)
-
-        result = chain.invoke({"messages": state["messages"]})
-
-        report = ""
-
-        if len(result.tool_calls) == 0:
-            report = result.content
-
-        return {
-            "messages": [result],
-            "sentiment_report": report,
-        }
-
-    return social_media_analyst_node_exchange
 
 
 def create_social_media_analyst(llm, tools):
     def social_media_analyst_node(state):
         delivery_period = state.get("delivery_period", state.get("company_of_interest", ""))
         market_area = state.get("market_area", "CZ")
-        current_date = state.get("trade_date", "")
+        trade_timestamp = state.get("trade_date", "")
         system_message = (
             f"You are evaluating the system state for the {market_area} electricity market, delivery on {delivery_period}. "
             f"Key framework elements to consider:\n"
@@ -144,7 +101,7 @@ def create_social_media_analyst(llm, tools):
         ])
         prompt = prompt.partial(
             tool_names=", ".join([tool.name for tool in tools]),
-            current_date=current_date,
+            trade_timestamp=trade_timestamp,
             delivery_period=delivery_period,
             market_area=market_area,
         )

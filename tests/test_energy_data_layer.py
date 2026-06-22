@@ -17,7 +17,7 @@ import pandas as pd
 
 # Test data - use a recent date with known data availability
 TEST_DATE = (datetime.now() - timedelta(days=2)).strftime("%Y-%m-%d")
-TEST_MARKET_AREA = "DE-LU"
+TEST_MARKET_AREA = "CZ"
 TEST_CZ_AREA = "CZ"
 
 

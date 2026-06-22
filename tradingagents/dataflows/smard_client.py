@@ -177,8 +177,8 @@ def get_german_generation(
 ) -> str:
     """Fetch German generation breakdown by type from SMARD."""
     if market_area.upper() != "DE-LU":
-        logger.warning(f"SMARD generation client only supports DE-LU market area. Requested: {market_area}")
-        return f"# No generation data available for {market_area} on {delivery_date} (SMARD supports DE-LU only)"
+        logger.warning(f"SMARD generation client only supports DE-LU market area. Requested: {market_area} - Changed to DE-LU. Use it for cross-checking only, and be aware that the data WILL NOT be accurate for other market areas.")
+        market_area = "DE-LU"
 
     def fetch():
         generation_types = [
@@ -245,8 +245,8 @@ def get_german_residual_load(
 ) -> str:
     """Fetch German residual load (total load minus wind and solar) from SMARD."""
     if market_area.upper() != "DE-LU":
-        logger.warning(f"SMARD residual load client only supports DE-LU market area. Requested: {market_area}")
-        return f"# No residual load data available for {market_area} on {delivery_date} (SMARD supports DE-LU only)"
+        logger.warning(f"SMARD residual load client only supports DE-LU market area. Requested: {market_area} - Changed to DE-LU. Use it for cross-checking only, and be aware that the data WILL NOT be accurate for other market areas.")
+        market_area = "DE-LU"
 
     def fetch():
         filter_id = FILTER_IDS.get("residual_load")
@@ -287,8 +287,8 @@ def get_german_total_load(
 ) -> str:
     """Fetch German total load from SMARD."""
     if market_area.upper() != "DE-LU":
-        logger.warning(f"SMARD total load client only supports DE-LU market area. Requested: {market_area}")
-        return f"# No total load data available for {market_area} on {delivery_date} (SMARD supports DE-LU only)"
+        logger.warning(f"SMARD total load client only supports DE-LU market area. Requested: {market_area} - Changed to DE-LU. Use it for cross-checking only, and be aware that the data WILL NOT be accurate for other market areas.")
+        market_area = "DE-LU"
 
     def fetch():
         filter_id = FILTER_IDS.get("total_load")
@@ -375,8 +375,8 @@ def get_german_generation_forecast(
 ) -> str:
     """Fetch German forecasted generation (Total, Wind, Solar) from SMARD."""
     if market_area.upper() != "DE-LU":
-        logger.warning(f"SMARD generation forecast client only supports DE-LU market area. Requested: {market_area}")
-        return f"# No generation forecast data available for {market_area} on {delivery_date} (SMARD supports DE-LU only)"
+        logger.warning(f"SMARD generation forecast client only supports DE-LU market area. Requested: {market_area} - Changed to DE-LU. Use it for cross-checking only, and be aware that the data WILL NOT be accurate for other market areas.")
+        market_area = "DE-LU"
 
     def fetch():
         forecast_types = [
@@ -434,8 +434,8 @@ def get_german_load_forecast(
 ) -> str:
     """Fetch German load forecast from SMARD."""
     if market_area.upper() != "DE-LU":
-        logger.warning(f"SMARD load forecast client only supports DE-LU market area. Requested: {market_area}")
-        return f"# No load forecast data available for {market_area} on {delivery_date} (SMARD supports DE-LU only)"
+        logger.warning(f"SMARD load forecast client only supports DE-LU market area. Requested: {market_area} - Changed to DE-LU. Use it for cross-checking only, and be aware that the data WILL NOT be accurate for other market areas.")
+        market_area = "DE-LU"
 
     def fetch():
         filter_id = FILTER_IDS.get("forecast_load")
@@ -472,6 +472,7 @@ def get_german_load_forecast(
 if __name__ == "__main__":
     import sys
     date = sys.argv[1] if len(sys.argv) > 1 else "2026-04-28"
+    market_area = sys.argv[2] if len(sys.argv) > 2 else "CZ"
 
     try:
         deleted_count = cache_layer.clear_cache(source="smard")
@@ -481,23 +482,23 @@ if __name__ == "__main__":
         pass
 
     print("\n=== get_german_generation ===")
-    print(get_german_generation(date, resolution="hour"))
+    print(get_german_generation(date, market_area=market_area, resolution="hour"))
 
     print("\n=== get_german_residual_load ===")
-    print(get_german_residual_load(date, resolution="hour"))
+    print(get_german_residual_load(date, market_area=market_area, resolution="hour"))
 
     print("\n=== get_german_total_load ===")
-    print(get_german_total_load(date, resolution="hour"))
+    print(get_german_total_load(date, market_area=market_area, resolution="hour"))
 
     print("\n=== get_smard_prices ===")
     print(get_smard_prices(date, market_area="DE-LU", resolution="hour"))
     print(get_smard_prices(date, market_area="CZ", resolution="hour"))
 
     print("\n=== get_german_generation_forecast ===")
-    print(get_german_generation_forecast(date, resolution="hour"))
+    print(get_german_generation_forecast(date, market_area=market_area, resolution="hour"))
 
     print("\n=== get_german_load_forecast ===")
-    print(get_german_load_forecast(date, resolution="hour"))
+    print(get_german_load_forecast(date, market_area=market_area, resolution="hour"))
 
     try:
         deleted_count = cache_layer.clear_cache(source="smard")

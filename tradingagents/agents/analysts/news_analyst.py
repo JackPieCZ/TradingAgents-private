@@ -15,13 +15,13 @@ developments that could affect electricity prices for the target delivery period
 MARKET CONTEXT:
 - Delivery period: {delivery_period}
 - Market area: {market_area}
-- Current time: {current_date}
+- Trade timestamp: {trade_timestamp}
 
 ANALYTICAL WORKFLOW:
 1. Retrieve outage notifications (get_outage_notifications) — planned and unplanned
-2a. Retrieve forcasted load data (get_load_forecast) — identify demand trends and potential surprises
-2b. Retrieve actual load data (get_actual_load) — compare with forecast for demand surprises
-3. Retrieve cross-border flow data (get_cross_border_flows) — identify supply/demand imbalances and potential price impacts
+2. Retrieve forcasted load data (get_load_forecast) — the day-ahead demand expectation to compare against actual
+3. Retrieve actual load data (xref_actual_load (for both CZ and DE-LU) get_actual_load (only CZ)) — compare with forecast for demand surprises
+4. Retrieve cross-border flow data (get_cross_border_flows) — detect import/export constraints and FBMC congestionimpacts
 
 KEY ANALYSIS:
 - OUTAGE IMPACT: For each significant outage, assess:
@@ -47,68 +47,23 @@ OUTPUT FORMAT:
 3. DEMAND ASSESSMENT: Any significant load forecast deviations
 4. REMIT FLAGS: Any information that requires special handling
 
+TOOL OUTPUT FORMATS:
+- get_outage_notifications → Text summary of REMIT UMMs: plant name, fuel type, MW unavailable, planned/unplanned, start and end times.
+- get_actual_load → CSV. Columns: Hour (CET), Actual Load MW. Compare against day-ahead forecast for demand surprises.
+- get_load_forecast → CSV. Columns: Hour (CET), Forecasted Load MW. The day-ahead expectation.
+- get_cross_border_flows → CSV. Columns: Hour (CET), then one column per border with flow in MW. Saturated flows indicate FBMC congestion.
+
+All outputs start with a # header line and # metadata, followed by CSV or text data.
+
 You have access to the following tools: {tool_names}."""
 
-
-def create_news_analyst_exchange(llm):
-    def news_analyst_node(state):
-        current_date = state["trade_date"]
-        instrument_context = build_instrument_context(state["company_of_interest"])
-
-        tools = [
-            get_news,
-            get_global_news,
-        ]
-
-        system_message = (
-            "You are a news researcher tasked with analyzing recent news and trends over the past week. Please write a comprehensive report of the current state of the world that is relevant for trading and macroeconomics. Use the available tools: get_news(query, start_date, end_date) for company-specific or targeted news searches, and get_global_news(curr_date, look_back_days, limit) for broader macroeconomic news. Provide specific, actionable insights with supporting evidence to help traders make informed decisions."
-            + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read."""
-            + get_language_instruction()
-        )
-
-        prompt = ChatPromptTemplate.from_messages(
-            [
-                (
-                    "system",
-                    "You are a helpful AI assistant, collaborating with other assistants."
-                    " Use the provided tools to progress towards answering the question."
-                    " If you are unable to fully answer, that's OK; another assistant with different tools"
-                    " will help where you left off. Execute what you can to make progress."
-                    " If you or any other assistant has the FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** or deliverable,"
-                    " prefix your response with FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** so the team knows to stop."
-                    " You have access to the following tools: {tool_names}.\n{system_message}"
-                    "For your reference, the current date is {current_date}. {instrument_context}",
-                ),
-                MessagesPlaceholder(variable_name="messages"),
-            ]
-        )
-
-        prompt = prompt.partial(system_message=system_message)
-        prompt = prompt.partial(tool_names=", ".join([tool.name for tool in tools]))
-        prompt = prompt.partial(current_date=current_date)
-        prompt = prompt.partial(instrument_context=instrument_context)
-
-        chain = prompt | llm.bind_tools(tools)
-        result = chain.invoke({"messages": state["messages"]})
-
-        report = ""
-
-        if len(result.tool_calls) == 0:
-            report = result.content
-
-        return {
-            "messages": [result],
-            "news_report": report,
-        }
-
-    return news_analyst_node
 
 
 def create_news_analyst(llm, tools):
     def news_analyst_node(state):
         delivery_period = state.get("delivery_period", state.get("company_of_interest", ""))
         market_area = state.get("market_area", "CZ")
-        current_date = state.get("trade_date", "")
+        trade_timestamp = state.get("trade_date", "")
         system_message = (
             "Focus on REMIT Urgent Market Messages (UMMs) regarding the capacity and use of facilities, "
             "specifically planned maintenance and unplanned outages. Under REMIT, timely public disclosure "
@@ -124,7 +79,7 @@ def create_news_analyst(llm, tools):
         prompt = prompt.partial(
             system_message=system_message,
             tool_names=", ".join([tool.name for tool in tools]),
-            current_date=current_date,
+            trade_timestamp=trade_timestamp,
             delivery_period=delivery_period,
             market_area=market_area,
         )

@@ -369,6 +369,7 @@ def query_generation_forecast_updates(
         area_code = get_entsoe_area_code(market_area)
         start, end = delivery_date_to_entsoe_period(delivery_date)
 
+        # Fetch Day-Ahead baseline
         try:
             da_raw = client.query_wind_and_solar_forecast(area_code, start=start, end=end)
             da_forecast = da_raw.to_frame(name="Total Generation") if isinstance(da_raw, pd.Series) else da_raw
@@ -376,10 +377,11 @@ def query_generation_forecast_updates(
             logger.warning(f"No day-ahead generation forecast found for {market_area} on {delivery_date}")
             da_forecast = pd.DataFrame()
 
+        # CRITICAL FIX: Use the specific Intraday Wind & Solar endpoint
         try:
-            id_raw = client.query_generation_forecast(area_code, start=start, end=end)
+            id_raw = client.query_intraday_wind_and_solar_forecast(area_code, start=start, end=end)
             id_forecast = id_raw.to_frame(name="Total Generation") if isinstance(id_raw, pd.Series) else id_raw
-        except (NoMatchingDataError, InvalidBusinessParameterError):
+        except (NoMatchingDataError, InvalidBusinessParameterError, AttributeError):
             logger.warning(f"No intraday generation forecast found for {market_area} on {delivery_date}")
             id_forecast = pd.DataFrame()
 
@@ -404,11 +406,13 @@ def query_generation_forecast_updates(
             result["ID Wind Offshore"] = id_forecast.get("Wind Offshore", result["DA Wind Offshore"])
             result["ID Solar"] = id_forecast.get("Solar", result["DA Solar"])
         else:
+            logger.warning(
+                f"Intraday forecast missing for {market_area} on {delivery_date}. Using Day-Ahead as fallback.")
             result["ID Wind Onshore"] = result["DA Wind Onshore"]
             result["ID Wind Offshore"] = result["DA Wind Offshore"]
             result["ID Solar"] = result["DA Solar"]
 
-        # CRITICAL FIX: If Intraday has NaNs for specific hours, fallback to Day-Ahead for those exact hours
+        # If Intraday has NaNs for specific hours, fallback to Day-Ahead for those exact hours
         result["ID Wind Onshore"] = result["ID Wind Onshore"].fillna(result["DA Wind Onshore"])
         result["ID Wind Offshore"] = result["ID Wind Offshore"].fillna(result["DA Wind Offshore"])
         result["ID Solar"] = result["ID Solar"].fillna(result["DA Solar"])
@@ -420,10 +424,12 @@ def query_generation_forecast_updates(
                                (result["DA Wind Onshore"] + result["DA Wind Offshore"])
         result["Solar Delta"] = result["ID Solar"] - result["DA Solar"]
 
-        # Token saving logic: Check if all deltas are exactly zero (indicative of missing ID data falling back to DA)
+        # Token saving logic: Check if all deltas are exactly zero
         is_fallback = (result["Wind Delta"] == 0).all() and (result["Solar Delta"] == 0).all()
 
         if is_fallback:
+            logger.warning(
+                f"Intraday forecast updates for {market_area} on {delivery_date} are identical to Day-Ahead forecasts. This likely indicates missing intraday data, and the deltas are all zero. Displaying Day-Ahead baseline only.")
             # Drop the redundant Intraday and Delta columns to save LLM tokens
             cols_to_drop = ["ID Wind Onshore", "ID Wind Offshore", "ID Solar", "Wind Delta", "Solar Delta"]
             result = result.drop(columns=[c for c in cols_to_drop if c in result.columns])
@@ -450,7 +456,6 @@ def query_generation_forecast_updates(
         header += "# Unit: MW (delta = intraday_forecast - day_ahead_forecast)\n\n"
 
     return header + df.to_csv()
-
 # ─────────────────────────────────────────────
 # LOAD DATA
 # ─────────────────────────────────────────────
@@ -865,9 +870,12 @@ def query_residual_load(
             wind_total = wind_total.reindex(load.index, method='ffill')
             solar = solar.reindex(load.index, method='ffill')
 
-            result["Wind MW"] = wind_total
-            result["Solar MW"] = solar
-            # result["Residual Load MW"] = result[load_col_name] - wind_total - solar
+            # FIX 1: Explicitly label columns as forecasts to prevent LLM hallucination
+            result["Wind Forecast MW"] = wind_total
+            result["Solar Forecast MW"] = solar
+
+            # FIX 2: Restored the previously commented out calculation
+            result["Residual Load MW"] = result[load_col_name] - wind_total - solar
         else:
             result["Residual Load MW"] = result[load_col_name]
 
@@ -888,7 +896,8 @@ def query_residual_load(
     df = _format_index(df.copy())
 
     type_str = "Actual" if use_actuals else "Forecast"
-    header = f"# Residual Load {type_str} for {market_area} on {delivery_date}\n# Source: ENTSO-E\n# Unit: MW\n\n"
+    # FIX 3: Updated header documentation to reflect the exact mathematical inputs
+    header = f"# Residual Load {type_str} for {market_area} on {delivery_date}\n# Source: ENTSO-E (calculated: Load - Wind Forecast - Solar Forecast)\n# Unit: MW\n\n"
 
     return header + df.to_csv()
 
@@ -1062,34 +1071,33 @@ Hour,Biomass,Fossil Brown coal/Lignite,Fossil Coal-derived gas,Fossil Gas,Fossil
 === query_generation_forecast_updates ===
 # Forecast Updates for CZ on 2026-04-28
 # Source: ENTSO-E
-# WARNING: Intraday forecast updates unavailable. Displaying Day-Ahead baseline only.
-# Unit: MW
+# Unit: MW (delta = intraday_forecast - day_ahead_forecast)
 
-Hour,DA Solar
-00:00,0.0
-01:00,0.0
-02:00,0.0
-03:00,0.0
-04:00,0.0
-05:00,18.0
-06:00,176.75
-07:00,649.75
-08:00,1386.0
-09:00,2100.0
-10:00,2600.5
-11:00,2871.5
-12:00,2942.0
-13:00,2873.5
-14:00,2629.25
-15:00,2249.25
-16:00,1745.25
-17:00,1102.5
-18:00,499.25
-19:00,140.5
-20:00,14.75
-21:00,0.0
-22:00,0.0
-23:00,0.0
+Hour,DA Solar,ID Solar,Solar Delta
+00:00,0.0,0.0,0.0
+01:00,0.0,0.0,0.0
+02:00,0.0,0.0,0.0
+03:00,0.0,0.0,0.0
+04:00,0.0,0.0,0.0
+05:00,18.0,16.75,-1.25
+06:00,176.75,175.0,-1.75
+07:00,649.75,687.25,37.5
+08:00,1386.0,1455.5,69.5
+09:00,2100.0,2194.0,94.0
+10:00,2600.5,2709.75,109.25
+11:00,2871.5,3026.5,155.0
+12:00,2942.0,3133.0,191.0
+13:00,2873.5,3071.0,197.5
+14:00,2629.25,2831.0,201.75
+15:00,2249.25,2418.75,169.5
+16:00,1745.25,1868.25,123.0
+17:00,1102.5,1188.25,85.75
+18:00,499.25,537.0,37.75
+19:00,140.5,150.0,9.5
+20:00,14.75,16.0,1.25
+21:00,0.0,0.0,0.0
+22:00,0.0,0.0,0.0
+23:00,0.0,0.0,0.0
 
 
 === query_load_forecast ===

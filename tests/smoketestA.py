@@ -11,13 +11,6 @@ config["llm_provider"] = "google"
 config["deep_think_llm"] = "gemini-3.1-pro-preview"
 config["quick_think_llm"] = "gemini-3-flash-preview"
 
-# Test with mock data vendors
-config["data_vendors"] = {
-    "price_data": "mock", "system_data": "mock",
-    "weather_data": "mock", "news_data": "mock",
-    "market_fundamentals": "mock"
-}
-
 graph = TradingAgentsGraph(config=config)
 state, signal = graph.propagate(
     delivery_period="2026-05-01",
@@ -37,5 +30,6 @@ assert state.get("delivery_period") == "2026-05-01"
 assert state.get("market_area") == "CZ"
 
 # Verify signal extraction works with power actions
+print(f"State: {state}")
 print(f"Signal: {signal}")
 print("SMOKE TEST PASSED")

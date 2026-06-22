@@ -1,174 +1,193 @@
+# TradingAgents Energy
+
+**Multi-Agent LLM Framework for European Electricity Intraday Trading**
+
+A fork of [TauricResearch/TradingAgents](https://github.com/TauricResearch/TradingAgents) adapted for European power markets. Uses a team of specialized AI agents to analyze electricity market data, debate trading opportunities, and produce structured trading decisions for intraday continuous and IDA auction markets.
+
+```diff
++ Total Lines Added (+)   : 24,695
+- Total Lines Deleted (-) : 6,795
+```
+For the full summary of changes see ([CHANGELOG.md](https://github.com/JackPieCZ/TradingAgents-Energy/blob/main/CHANGELOG.md))
+
+Built on the TradingAgents architecture ([arXiv:2412.20138v7](https://arxiv.org/abs/2412.20138v7)) with domain adaptations informed by 27 academic papers on intraday electricity price formation, forecast-driven trading, and market microstructure.
+
 <p align="center">
-  <img src="assets/TauricResearch.png" style="width: 60%; height: auto;">
+  <img src="assets/cli/cli_init.png" width="100%" style="display: inline-block; margin: 0 2%;">
 </p>
-
-<div align="center" style="line-height: 1;">
-  <a href="https://arxiv.org/abs/2412.20138" target="_blank"><img alt="arXiv" src="https://img.shields.io/badge/arXiv-2412.20138-B31B1B?logo=arxiv"/></a>
-  <a href="https://discord.com/invite/hk9PGKShPK" target="_blank"><img alt="Discord" src="https://img.shields.io/badge/Discord-TradingResearch-7289da?logo=discord&logoColor=white&color=7289da"/></a>
-  <a href="./assets/wechat.png" target="_blank"><img alt="WeChat" src="https://img.shields.io/badge/WeChat-TauricResearch-brightgreen?logo=wechat&logoColor=white"/></a>
-  <a href="https://x.com/TauricResearch" target="_blank"><img alt="X Follow" src="https://img.shields.io/badge/X-TauricResearch-white?logo=x&logoColor=white"/></a>
-  <br>
-  <a href="https://github.com/TauricResearch/" target="_blank"><img alt="Community" src="https://img.shields.io/badge/Join_GitHub_Community-TauricResearch-14C290?logo=discourse"/></a>
-</div>
-
-<div align="center">
-  <!-- Keep these links. Translations will automatically update with the README. -->
-  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=de">Deutsch</a> | 
-  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=es">Español</a> | 
-  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=fr">français</a> | 
-  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=ja">日本語</a> | 
-  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=ko">한국어</a> | 
-  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=pt">Português</a> | 
-  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=ru">Русский</a> | 
-  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=zh">中文</a>
-</div>
 
 ---
 
-# TradingAgents: Multi-Agents LLM Financial Trading Framework
+## Architecture
 
-## News
-- [2026-04] **TradingAgents v0.2.4** released with structured-output agents (Research Manager, Trader, Portfolio Manager), LangGraph checkpoint resume, persistent decision log, DeepSeek/Qwen/GLM/Azure provider support, Docker, and a Windows UTF-8 encoding fix. See [CHANGELOG.md](CHANGELOG.md) for the full list.
-- [2026-03] **TradingAgents v0.2.3** released with multi-language support, GPT-5.4 family models, unified model catalog, backtesting date fidelity, and proxy support.
-- [2026-03] **TradingAgents v0.2.2** released with GPT-5.4/Gemini 3.1/Claude 4.6 model coverage, five-tier rating scale, OpenAI Responses API, Anthropic effort control, and cross-platform stability.
-- [2026-02] **TradingAgents v0.2.0** released with multi-provider LLM support (GPT-5.x, Gemini 3.x, Claude 4.x, Grok 4.x) and improved system architecture.
-- [2026-01] **Trading-R1** [Technical Report](https://arxiv.org/abs/2509.11420) released, with [Terminal](https://github.com/TauricResearch/Trading-R1) expected to land soon.
-
-<div align="center">
-<a href="https://www.star-history.com/#TauricResearch/TradingAgents&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=TauricResearch/TradingAgents&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=TauricResearch/TradingAgents&type=Date" />
-   <img alt="TradingAgents Star History" src="https://api.star-history.com/svg?repos=TauricResearch/TradingAgents&type=Date" style="width: 80%; height: auto;" />
- </picture>
-</a>
-</div>
-
-> 🎉 **TradingAgents** officially released! We have received numerous inquiries about the work, and we would like to express our thanks for the enthusiasm in our community.
->
-> So we decided to fully open-source the framework. Looking forward to building impactful projects with you!
-
-<div align="center">
-
-🚀 [TradingAgents](#tradingagents-framework) | ⚡ [Installation & CLI](#installation-and-cli) | 🎬 [Demo](https://www.youtube.com/watch?v=90gr5lwjIho) | 📦 [Package Usage](#tradingagents-package) | 🤝 [Contributing](#contributing) | 📄 [Citation](#citation)
-
-</div>
-
-## TradingAgents Framework
-
-TradingAgents is a multi-agent trading framework that mirrors the dynamics of real-world trading firms. By deploying specialized LLM-powered agents: from fundamental analysts, sentiment experts, and technical analysts, to trader, risk management team, the platform collaboratively evaluates market conditions and informs trading decisions. Moreover, these agents engage in dynamic discussions to pinpoint the optimal strategy.
+The framework orchestrates a pipeline of specialized agents, each backed by real European energy market data:
 
 <p align="center">
   <img src="assets/schema.png" style="width: 100%; height: auto;">
 </p>
 
-> TradingAgents framework is designed for research purposes. Trading performance may vary based on many factors, including the chosen backbone language models, model temperature, trading periods, the quality of data, and other non-deterministic factors. [It is not intended as financial, investment, or trading advice.](https://tauric.ai/disclaimer/)
-
-Our framework decomposes complex trading tasks into specialized roles. This ensures the system achieves a robust, scalable approach to market analysis and decision-making.
-
 ### Analyst Team
-- Fundamentals Analyst: Evaluates company financials and performance metrics, identifying intrinsic values and potential red flags.
-- Sentiment Analyst: Analyzes social media and public sentiment using sentiment scoring algorithms to gauge short-term market mood.
-- News Analyst: Monitors global news and macroeconomic indicators, interpreting the impact of events on market conditions.
-- Technical Analyst: Utilizes technical indicators (like MACD and RSI) to detect trading patterns and forecast price movements.
 
-<p align="center">
-  <img src="assets/analyst.png" width="100%" style="display: inline-block; margin: 0 2%;">
-</p>
+The Analyst Team runs four specialized agents in sequence. Each agent appends a concise summary to
+a shared `analyst_context` field so that later analysts can see what earlier analysts discovered —
+without carrying the full message history forward.
 
-### Researcher Team
-- Comprises both bullish and bearish researchers who critically assess the insights provided by the Analyst Team. Through structured debates, they balance potential gains against inherent risks.
+**1. Weather & Forecast Analyst** (`fundamentals_analyst.py`) — *most important agent; primary alpha source*
 
-<p align="center">
-  <img src="assets/researcher.png" width="70%" style="display: inline-block; margin: 0 2%;">
-</p>
+Computes the **forecast revision delta**: the change in wind/solar generation forecasts between the
+day-ahead auction and the current intraday timestamp. A positive wind revision (more wind than
+priced in) is a downward price signal; a negative revision is upward. The magnitude is interpreted
+relative to the merit order steepness reported by the System State Analyst. Runs last so it has
+full context from all three preceding analysts.
 
-### Trader Agent
-- Composes reports from the analysts and researchers to make informed trading decisions. It determines the timing and magnitude of trades based on comprehensive market insights.
+Tools: `get_wind_forecast`, `get_solar_forecast`, `get_generation_forecast`, `get_forecast_updates`, `get_weather_forecast`, `get_historical_forecast`
 
-<p align="center">
-  <img src="assets/trader.png" width="70%" style="display: inline-block; margin: 0 2%;">
-</p>
+References: `Kup22` (forecast revision trading strategy — primary alpha source), `Kie17` (forecast error → price impact), `Hir22` (fundamental drivers of price distribution)
 
-### Risk Management and Portfolio Manager
-- Continuously evaluates portfolio risk by assessing market volatility, liquidity, and other risk factors. The risk management team evaluates and adjusts trading strategies, providing assessment reports to the Portfolio Manager for final decision.
-- The Portfolio Manager approves/rejects the transaction proposal. If approved, the order will be sent to the simulated exchange and executed.
+> **Market-specific note:** For CZ, solar is the dominant variable (~2.5 GW installed); wind is
+> negligible (~350 MW). For DE-LU, both wind (~65 GW onshore + ~8 GW offshore) and solar
+> (~80 GW) are material and must be assessed independently.
 
-<p align="center">
-  <img src="assets/risk.png" width="70%" style="display: inline-block; margin: 0 2%;">
-</p>
+---
 
-## Installation and CLI
+**2. System State Analyst** (`social_media_analyst.py`) — *grid fundamentals replace social sentiment*
 
-### Installation
+Analyses residual load (load minus wind minus solar), actual generation by fuel type, and
+cross-border flow positions to classify the current market regime (normal / stressed /
+oversupplied). When conventional capacity is tight, the same forecast shock has a much larger price
+impact — this agent flags that non-linearity. Reads the Price & Technical summary from
+`analyst_context` before forming conclusions.
 
-Clone TradingAgents:
+Tools: `get_residual_load`, `get_actual_generation`, `get_load_forecast`, `get_cross_border_flows`, `get_outage_notifications`, `get_actual_load`
+
+References: `Kie17` (demand-quote regime, merit order slope), `Kre21b` (merit order slope), `Kri20` (cross-border flows)
+
+---
+
+**3. Energy News & Regulatory Analyst** (`news_analyst.py`) — *event risk and REMIT flags*
+
+Identifies outage announcements, REMIT Urgent Market Messages, and demand surprises by comparing
+actual load against the day-ahead forecast. Flags any information that could constitute inside
+information under REMIT Article 3. Reads the Price & Technical and System State summaries before
+forming conclusions.
+
+Tools: `get_outage_notifications`, `get_actual_load`, `get_load_forecast`, `get_cross_border_flows`
+
+References: `Hie20` (REMIT and outage notification impact)
+
+---
+
+**4. Price & Technical Analyst** (`market_analyst.py`) — *establishes the price anchor*
+
+Retrieves intraday price history and computes the spread between the current intraday price and the
+day-ahead settlement. Assesses recent price momentum, mean-reversion potential, and cross-product
+signals from adjacent delivery periods. Outputs a price-level summary that anchors all subsequent
+analysts.
+
+Tools: `get_day_ahead_prices`, `get_intraday_prices`, `get_intraday_auction_prices`, `get_imbalance_data`
+
+References: `Kre21b` (autoregressive terms, cross-contract features), `Hir22`/`Hir23` (distribution features, cross-product signals), `Kat20` (time-to-delivery volatility)
+
+---
+
+## Supported Markets
+
+| Market | Data Sources | Products |
+|--------|-------------|----------|
+| **CZ** (Czech Republic) | ENTSO-E, OTE SOAP API, Open-Meteo | DA prices, intraday continuous (VWAP), IDA1/IDA2/IDA3 auctions, imbalance settlement |
+| **DE-LU** (Germany/Luxembourg) | ENTSO-E, SMARD, Open-Meteo | DA prices, generation by type, load, residual load, cross-border flows |
+
+**Data sources** (all free, zero-cost stack):
+
+- **ENTSO-E Transparency Platform** — DA prices, generation forecasts, actual generation, load, cross-border flows, outages (REMIT), imbalance prices
+- **OTE SOAP API** — Czech DA, intraday continuous, IDA auctions, imbalance settlement
+- **SMARD** — German generation by fuel type, load, residual load
+- **Open-Meteo** — Wind speed, solar irradiance, temperature, historical forecasts
+
+---
+
+## Installation
+
+### Prerequisites
+
+- Python 3.13+
+- An ENTSO-E API key ([follow these steps](https://www.amsleser.no/blog/post/21-obtaining-api-token-from-entso-e), [register here](https://transparency.entsoe.eu/))
+- An LLM API key (Google Gemini, OpenAI, Anthropic, or xAI)
+
+### Setup
+
 ```bash
-git clone https://github.com/TauricResearch/TradingAgents.git
-cd TradingAgents
-```
+# Clone the repository
+git clone https://github.com/JackPieCZ/TradingAgents-Energy.git
+cd TradingAgents-Energy
 
-Create a virtual environment in any of your favorite environment managers:
-```bash
+# Create and activate conda environment
 conda create -n tradingagents python=3.13
 conda activate tradingagents
-```
 
-Install the package and its dependencies:
-```bash
-pip install .
-```
+# Install base dependencies
+pip install -r requirements.txt
 
-### Docker
+# Install energy-specific dependencies
+pip install entsoe-py openmeteo-requests requests-cache retry-requests
 
-Alternatively, run with Docker:
-```bash
-cp .env.example .env  # add your API keys
-docker compose run --rm tradingagents
-```
-
-For local models with Ollama:
-```bash
-docker compose --profile ollama run --rm tradingagents-ollama
-```
-
-### Required APIs
-
-TradingAgents supports multiple LLM providers. Set the API key for your chosen provider:
-
-```bash
-export OPENAI_API_KEY=...          # OpenAI (GPT)
-export GOOGLE_API_KEY=...          # Google (Gemini)
-export ANTHROPIC_API_KEY=...       # Anthropic (Claude)
-export XAI_API_KEY=...             # xAI (Grok)
-export DEEPSEEK_API_KEY=...        # DeepSeek
-export DASHSCOPE_API_KEY=...       # Qwen (Alibaba DashScope)
-export ZHIPU_API_KEY=...           # GLM (Zhipu)
-export OPENROUTER_API_KEY=...      # OpenRouter
-export ALPHA_VANTAGE_API_KEY=...   # Alpha Vantage
-```
-
-For enterprise providers (e.g. Azure OpenAI, AWS Bedrock), copy `.env.enterprise.example` to `.env.enterprise` and fill in your credentials.
-
-For local models, configure Ollama with `llm_provider: "ollama"` in your config.
-
-Alternatively, copy `.env.example` to `.env` and fill in your keys:
-```bash
+# Configure environment variables
 cp .env.example .env
+# Edit .env and add:
+#   ENTSOE_API_KEY=your_key_here
+#   GOOGLE_API_KEY=your_key_here   (or OPENAI_API_KEY, ANTHROPIC_API_KEY)
 ```
 
-### CLI Usage
+### Verify installation
 
-Launch the interactive CLI:
 ```bash
-tradingagents          # installed command
-python -m cli.main     # alternative: run directly from source
+# Test energy data layer (requires ENTSO-E API key)
+python tests/smoketestA.py
 ```
-You will see a screen where you can select your desired tickers, analysis date, LLM provider, research depth, and more.
 
-<p align="center">
-  <img src="assets/cli/cli_init.png" width="100%" style="display: inline-block; margin: 0 2%;">
-</p>
+---
+
+## Quick Start
+
+### Python API
+
+```python
+from tradingagents.graph.trading_graph import TradingAgentsGraph
+from tradingagents.default_config import DEFAULT_CONFIG
+from dotenv import load_dotenv
+
+load_dotenv()
+
+config = DEFAULT_CONFIG.copy()
+config["market_area"] = "CZ"  # or "DE-LU"
+
+ta = TradingAgentsGraph(debug=True, config=config)
+
+# Analyze CZ market for May 4, 2026 delivery
+_, decision = ta.propagate(
+    delivery_period="2026-05-04",
+    trade_timestamp="2026-05-04T14:00",
+    market_area="CZ",
+)
+print(decision)  # e.g., "Sell"
+```
+
+### CLI
+
+```bash
+python -m cli.main
+```
+
+The CLI guides you through:
+
+1. **Delivery date** — which day's delivery periods to analyze
+2. **Market area** — CZ or DE-LU
+3. **Trade timestamp** — when the analysis is being run
+4. **Output language** — for analyst reports
+5. **Analyst selection** — which agents to include
+6. **Research depth** — number of debate rounds
+7. **LLM provider** — Google, OpenAI, Anthropic, or xAI
+8. **Model selection** — fast thinker and deep thinker models
 
 An interface will appear showing results as they load, letting you track the agent's progress as it runs.
 
@@ -180,92 +199,135 @@ An interface will appear showing results as they load, letting you track the age
   <img src="assets/cli/cli_transaction.png" width="100%" style="display: inline-block; margin: 0 2%;">
 </p>
 
-## TradingAgents Package
+---
 
-### Implementation Details
+## Configuration
 
-We built TradingAgents with LangGraph to ensure flexibility and modularity. The framework supports multiple LLM providers: OpenAI, Google, Anthropic, xAI, DeepSeek, Qwen (Alibaba DashScope), GLM (Zhipu), OpenRouter, Ollama for local models, and Azure OpenAI for enterprise.
-
-### Python Usage
-
-To use TradingAgents inside your code, you can import the `tradingagents` module and initialize a `TradingAgentsGraph()` object. The `.propagate()` function will return a decision. You can run `main.py`, here's also a quick example:
+Key configuration options in `default_config.py`:
 
 ```python
-from tradingagents.graph.trading_graph import TradingAgentsGraph
-from tradingagents.default_config import DEFAULT_CONFIG
-
-ta = TradingAgentsGraph(debug=True, config=DEFAULT_CONFIG.copy())
-
-# forward propagate
-_, decision = ta.propagate("NVDA", "2026-01-15")
-print(decision)
-```
-
-You can also adjust the default configuration to set your own choice of LLMs, debate rounds, etc.
-
-```python
-from tradingagents.graph.trading_graph import TradingAgentsGraph
-from tradingagents.default_config import DEFAULT_CONFIG
-
-config = DEFAULT_CONFIG.copy()
-config["llm_provider"] = "openai"        # openai, google, anthropic, xai, deepseek, qwen, glm, openrouter, ollama, azure
-config["deep_think_llm"] = "gpt-5.4"     # Model for complex reasoning
-config["quick_think_llm"] = "gpt-5.4-mini" # Model for quick tasks
-config["max_debate_rounds"] = 2
-
-ta = TradingAgentsGraph(debug=True, config=config)
-_, decision = ta.propagate("NVDA", "2026-01-15")
-print(decision)
-```
-
-See `tradingagents/default_config.py` for all configuration options.
-
-## Persistence and Recovery
-
-TradingAgents persists two kinds of state across runs.
-
-### Decision log
-
-The decision log is always on. Each completed run appends its decision to `~/.tradingagents/memory/trading_memory.md`. On the next run for the same ticker, TradingAgents fetches the realised return (raw and alpha vs SPY), generates a one-paragraph reflection, and injects the most recent same-ticker decisions plus recent cross-ticker lessons into the Portfolio Manager prompt, so each analysis carries forward what worked and what didn't.
-
-Override the path with `TRADINGAGENTS_MEMORY_LOG_PATH`.
-
-### Checkpoint resume
-
-Checkpoint resume is opt-in via `--checkpoint`. When enabled, LangGraph saves state after each node so a crashed or interrupted run resumes from the last successful step instead of starting over. On a resume run you will see `Resuming from step N for <TICKER> on <date>` in the logs; on a new run you will see `Starting fresh`. Checkpoints are cleared automatically on successful completion.
-
-Per-ticker SQLite databases live at `~/.tradingagents/cache/checkpoints/<TICKER>.db` (override the base with `TRADINGAGENTS_CACHE_DIR`). Use `--clear-checkpoints` to reset all of them before a run.
-
-```bash
-tradingagents analyze --checkpoint           # enable for this run
-tradingagents analyze --clear-checkpoints    # reset before running
-```
-
-```python
-config = DEFAULT_CONFIG.copy()
-config["checkpoint_enabled"] = True
-ta = TradingAgentsGraph(config=config)
-_, decision = ta.propagate("NVDA", "2026-01-15")
-```
-
-## Contributing
-
-We welcome contributions from the community! Whether it's fixing a bug, improving documentation, or suggesting a new feature, your input helps make this project better. If you are interested in this line of research, please consider joining our open-source financial AI research community [Tauric Research](https://tauric.ai/).
-
-Past contributions, including code, design feedback, and bug reports, are credited per release in [`CHANGELOG.md`](CHANGELOG.md).
-
-## Citation
-
-Please reference our work if you find *TradingAgents* provides you with some help :)
-
-```
-@misc{xiao2025tradingagentsmultiagentsllmfinancial,
-      title={TradingAgents: Multi-Agents LLM Financial Trading Framework}, 
-      author={Yijia Xiao and Edward Sun and Di Luo and Wei Wang},
-      year={2025},
-      eprint={2412.20138},
-      archivePrefix={arXiv},
-      primaryClass={q-fin.TR},
-      url={https://arxiv.org/abs/2412.20138}, 
+{
+    "market_area": "CZ",           # "CZ" or "DE-LU"
+    "delivery_resolution": "60min", # "60min" or "15min"
+    "trading_horizon": "intraday",  # "day_ahead" | "intraday" | "both"
+    
+    # Vendor routing (category-level defaults)
+    "data_vendors": {
+        "price_data": "entsoe",
+        "system_data": "entsoe",
+        "weather_data": "openmeteo",
+        "market_fundamentals": "smard",
+    },
+    
+    # Tool-level overrides (take precedence)
+    "tool_vendors": {
+        "get_day_ahead_prices": "entsoe,ote",  # Fallback chain
+        "get_intraday_prices": "ote",
+        "get_intraday_auction_prices": "ote",
+        ...
+    },
+    
+    # LLM settings
+    "llm_provider": "google",
+    "deep_think_llm": "gemini-3.1-pro-preview",
+    "quick_think_llm": "gemini-3-flash-preview",
 }
 ```
+
+---
+
+## Project Structure
+
+```
+tradingagents/
+├── agents/
+│   ├── analysts/
+│   │   ├── fundamentals_analyst.py    # Weather & Forecast Analyst
+│   │   ├── social_media_analyst.py    # System State Analyst
+│   │   ├── news_analyst.py            # Energy News & Regulatory Analyst
+│   │   └── market_analyst.py          # Price & Technical Analyst
+│   ├── researchers/
+│   │   ├── bull_researcher.py         # Argues for LONG positions
+│   │   └── bear_researcher.py         # Argues for SHORT/NoTrade
+│   ├── risk_mgmt/
+│   │   ├── aggressive_debator.py
+│   │   ├── conservative_debator.py
+│   │   └── neutral_debator.py
+│   ├── managers/
+│   │   ├── research_manager.py        # Synthesizes debate → plan
+│   │   └── portfolio_manager.py       # Final decision
+│   ├── trader/
+│   │   └── trader.py                  # Execution proposal
+│   ├── schemas.py                     # Power trading schemas
+│   └── utils/
+│       ├── agent_states.py            # LangGraph state definition
+│       ├── energy_price_tools.py      # Price data tools
+│       ├── system_data_tools.py       # Grid state tools
+│       ├── weather_tools.py           # Weather/forecast tools
+│       ├── energy_news_tools.py       # News/outage tools
+│       └── cross_reference_tools.py   # Multi-vendor validation
+├── dataflows/
+│   ├── interface.py                   # Vendor routing layer
+│   ├── entsoe_client.py              # ENTSO-E Transparency API
+│   ├── ote_client.py                 # Czech OTE SOAP API
+│   ├── smard_client.py               # German SMARD API
+│   ├── weather_client.py             # Open-Meteo API
+│   ├── cache_layer.py                # Parquet caching
+│   ├── energy_utils.py               # CET/CEST timezone handling
+│   └── mock_energy.py                # Synthetic test data
+├── graph/
+│   ├── trading_graph.py              # Main orchestrator
+│   ├── setup.py                      # Graph construction
+│   ├── propagation.py                # State initialization
+│   ├── conditional_logic.py          # Flow control
+│   ├── signal_processing.py          # Rating extraction
+│   └── reflection.py                 # Decision reflection
+└── default_config.py                 # Configuration defaults
+```
+
+---
+
+## Domain Concepts
+
+For readers familiar with equity trading but new to power markets:
+
+| Equity Concept | Power Market Equivalent |
+|---|---|
+| Ticker symbol | Delivery period (e.g., 2026-05-04T14:00) |
+| Earnings surprise | Renewable forecast revision delta |
+| P/E ratio | Residual load / available conventional capacity |
+| Social sentiment | Weather forecasts and forecast deltas |
+| Insider transaction | REMIT urgent market message (UMM) |
+| Daily Buy/Hold/Sell | Per-delivery-period position signal |
+| Alpha vs S&P 500 | Net trading value vs DA settlement price |
+| Transaction cost | Spread + market impact + imbalance settlement cost |
+
+---
+
+## Research Papers
+
+The agent prompts encode domain knowledge from these key papers:
+
+- **Kup22** — Forecast revision trading strategy (primary alpha source)
+- **Kie17** — Demand-quote regime and forecast error impact
+- **Kre21b** — Feature set and merit order slope
+- **Hir22/Hir23** — Distribution features and cross-product signals
+- **Kat20** — Execution costs and market impact modeling
+- **Nar21/Nar22** — Balancing market dynamics
+- **Bun18** — Selective trading and transaction cost awareness
+- **Ber17** — Czech intraday market specifics and autoregressive features
+- **Féron20** — Intraday price formation and optimal trading
+- **Hie20** — REMIT and outage notification impact
+
+Full paper list and citations available in `research/Sources_Power_trading_transition_from_algo_finance.md`.
+
+---
+
+## Credits
+
+- Original framework: [TauricResearch/TradingAgents](https://github.com/TauricResearch/TradingAgents) — [arXiv:2412.20138v7](https://arxiv.org/abs/2412.20138v7)
+- Energy adaptation: Jakub Kolář
+
+## License
+
+See [LICENSE](LICENSE) for terms.

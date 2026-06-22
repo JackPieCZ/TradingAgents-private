@@ -26,6 +26,10 @@ from tradingagents.agents.utils.weather_tools import (
 from tradingagents.agents.utils.energy_news_tools import (
     get_outage_notifications, get_actual_load
 )
+from tradingagents.agents.utils.cross_reference_tools import (
+    xref_day_ahead_prices, xref_actual_generation, xref_generation_forecast,
+    xref_load_forecast, xref_residual_load, xref_balancing_data, xref_actual_load
+)
 
 class GraphSetup:
     """Handles the setup and configuration of the agent graph."""
@@ -50,10 +54,10 @@ class GraphSetup:
 
         Args:
             selected_analysts (list): List of analyst types to include. Options are:
-                - "market": Market analyst
-                - "social": Social media analyst
-                - "news": News analyst
-                - "fundamentals": Fundamentals analyst
+                - "market": "Price & Technical Analyst",
+                - "social": "System State Analyst",
+                - "news": "Energy News & Regulatory Analyst",
+                - "fundamentals": "Weather & Forecast Analyst",
         """
         if len(selected_analysts) == 0:
             raise ValueError("Trading Agents Graph Setup Error: no analysts selected!")
@@ -67,7 +71,8 @@ class GraphSetup:
             analyst_nodes["market"] = create_market_analyst(
                 self.quick_thinking_llm, [
                     get_day_ahead_prices, get_intraday_prices,
-                    get_intraday_auction_prices, get_balancing_data
+                    get_intraday_auction_prices, get_balancing_data,
+                    xref_day_ahead_prices, xref_balancing_data
                 ]
             )
             delete_nodes["market"] = create_msg_delete()
@@ -77,7 +82,8 @@ class GraphSetup:
             analyst_nodes["social"] = create_social_media_analyst(
                 self.quick_thinking_llm, [
                     get_residual_load, get_actual_generation, get_actual_load,
-                    get_load_forecast, get_cross_border_flows, get_outage_notifications
+                    get_load_forecast, get_cross_border_flows, get_outage_notifications,
+                    xref_residual_load, xref_actual_generation, xref_load_forecast, xref_actual_load
                 ]
             )
             delete_nodes["social"] = create_msg_delete()
@@ -86,7 +92,8 @@ class GraphSetup:
         if "news" in selected_analysts:
             analyst_nodes["news"] = create_news_analyst(
                 self.quick_thinking_llm, [
-                    get_outage_notifications, get_actual_load, get_load_forecast, get_cross_border_flows
+                    get_outage_notifications, get_actual_load, get_load_forecast, get_cross_border_flows,
+                    xref_actual_load
                 ]
             )
             delete_nodes["news"] = create_msg_delete()
@@ -96,8 +103,9 @@ class GraphSetup:
             analyst_nodes["fundamentals"] = create_fundamentals_analyst(
                 self.quick_thinking_llm, [
                     get_wind_forecast, get_solar_forecast,
-                    get_generation_forecast, #get_forecast_updates,
-                    get_weather_forecast, get_historical_forecast
+                    get_generation_forecast, get_forecast_updates,
+                    get_weather_forecast, get_historical_forecast,
+                    xref_generation_forecast
                 ]
             )
             delete_nodes["fundamentals"] = create_msg_delete()

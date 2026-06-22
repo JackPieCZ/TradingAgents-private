@@ -1,6 +1,27 @@
+from cli.stats_handler import StatsCallbackHandler
+from cli.announcements import fetch_announcements, display_announcements
+from cli.utils import *
+from cli.models import AnalystType
+from tradingagents.default_config import DEFAULT_CONFIG
+from tradingagents.graph.trading_graph import TradingAgentsGraph
+from rich.rule import Rule
+from rich.align import Align
+from rich import box
+from rich.tree import Tree
+import time
+from collections import deque
+from rich.table import Table
+from rich.text import Text
+from rich.layout import Layout
+from rich.markdown import Markdown
+from rich.columns import Columns
+from rich.live import Live
+from rich.spinner import Spinner
+from rich.panel import Panel
 import logging
 from typing import Optional
 import datetime
+from regex import B
 import typer
 from pathlib import Path
 from functools import wraps
@@ -10,35 +31,21 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 load_dotenv(".env.enterprise", override=False)
-from rich.panel import Panel
-from rich.spinner import Spinner
-from rich.live import Live
-from rich.columns import Columns
-from rich.markdown import Markdown
-from rich.layout import Layout
-from rich.text import Text
-from rich.table import Table
-from collections import deque
-import time
-from rich.tree import Tree
-from rich import box
-from rich.align import Align
-from rich.rule import Rule
 
-from tradingagents.graph.trading_graph import TradingAgentsGraph
-from tradingagents.default_config import DEFAULT_CONFIG
-from cli.models import AnalystType
-from cli.utils import *
-from cli.announcements import fetch_announcements, display_announcements
-from cli.stats_handler import StatsCallbackHandler
 
 console = Console()
 
 app = typer.Typer(
-    name="TradingAgents",
-    help="TradingAgents CLI: Multi-Agents LLM Financial Trading Framework",
+    name="TradingAgents-Energy",
+    help="TradingAgents CLI: Multi-Agents LLM Energy Trading Framework",
     add_completion=True,  # Enable shell completion
 )
+
+BRAND_COLOR = "#F24F00"    # PANTONE 172
+BRAND_STYLE = f"bold {BRAND_COLOR}"
+
+# BRAND_COLOR = "green"
+# BRAND_STYLE = f"bold {BRAND_COLOR}"
 
 
 # Create a deque to store recent messages with a maximum length
@@ -62,24 +69,15 @@ class MessageBuffer:
     # Report section mapping: section -> (analyst_key for filtering, finalizing_agent)
     # analyst_key: which analyst selection controls this section (None = always included)
     # finalizing_agent: which agent must be "completed" for this report to count as done
-    # REPORT_SECTIONS = {
-    #     "market_report": ("market", "Market Analyst"),
-    #     "sentiment_report": ("social", "Social Analyst"),
-    #     "news_report": ("news", "News Analyst"),
-    #     "fundamentals_report": ("fundamentals", "Fundamentals Analyst"),
-    #     "investment_plan": (None, "Research Manager"),
-    #     "trader_investment_plan": (None, "Trader"),
-    #     "final_trade_decision": (None, "Portfolio Manager"),
-    # }
     REPORT_SECTIONS = {
-    "market_report": ("market", "Price & Technical Analyst"),
-    "sentiment_report": ("social", "System State Analyst"),
-    "news_report": ("news", "Energy News & Regulatory Analyst"),
-    "fundamentals_report": ("fundamentals", "Weather & Forecast Analyst"),
-    "investment_plan": (None, "Research Manager"),
-    "trader_investment_plan": (None, "Trader"),
-    "final_trade_decision": (None, "Portfolio Manager"),
-}
+        "market_report": ("market", "Price & Technical Analyst"),
+        "sentiment_report": ("social", "System State Analyst"),
+        "news_report": ("news", "Energy News & Regulatory Analyst"),
+        "fundamentals_report": ("fundamentals", "Weather & Forecast Analyst"),
+        "investment_plan": (None, "Research Manager"),
+        "trader_investment_plan": (None, "Trader"),
+        "final_trade_decision": (None, "Portfolio Manager"),
+    }
 
     def __init__(self, max_length=100):
         self.messages = deque(maxlen=max_length)
@@ -164,30 +162,12 @@ class MessageBuffer:
     def update_report_section(self, section_name, content):
         if section_name in self.report_sections:
             self.report_sections[section_name] = content
-            self._update_current_report()
+            self._update_current_report(section_name)
 
-    def _update_current_report(self):
-        # For the panel display, only show the most recently updated section
-        latest_section = None
-        latest_content = None
-
-        # Find the most recently updated section
-        for section, content in self.report_sections.items():
-            if content is not None:
-                latest_section = section
-                latest_content = content
-               
-        if latest_section and latest_content:
+    def _update_current_report(self, latest_section=None):
+        if latest_section and self.report_sections.get(latest_section):
+            latest_content = self.report_sections[latest_section]
             # Format the current section for display
-            # section_titles = {
-            #     "market_report": "Market Analysis",
-            #     "sentiment_report": "Social Sentiment",
-            #     "news_report": "News Analysis",
-            #     "fundamentals_report": "Fundamentals Analysis",
-            #     "investment_plan": "Research Team Decision",
-            #     "trader_investment_plan": "Trading Team Plan",
-            #     "final_trade_decision": "Portfolio Management Decision",
-            # }
             section_titles = {
                 "market_report": "Price & Technical Analysis",
                 "sentiment_report": "System State Analysis",
@@ -198,7 +178,7 @@ class MessageBuffer:
                 "final_trade_decision": "Portfolio Management Decision",
             }
             self.current_report = (
-                f"### {section_titles[latest_section]}\n{latest_content}"
+                f"### {section_titles.get(latest_section, latest_section)}\n{latest_content}"
             )
 
         # Update the final complete report
@@ -257,7 +237,7 @@ def create_layout():
         Layout(name="footer", size=3),
     )
     layout["main"].split_column(
-        Layout(name="upper", ratio=3), Layout(name="analysis", ratio=5)
+        Layout(name="upper", ratio=1), Layout(name="analysis", ratio=1)
     )
     layout["upper"].split_row(
         Layout(name="progress", ratio=2), Layout(name="messages", ratio=3)
@@ -276,10 +256,10 @@ def update_display(layout, spinner_text=None, stats_handler=None, start_time=Non
     # Header with welcome message
     layout["header"].update(
         Panel(
-            "[bold green]Welcome to TradingAgents CLI[/bold green]\n"
-            "[dim]© [Tauric Research](https://github.com/TauricResearch)[/dim]",
-            title="Welcome to TradingAgents",
-            border_style="green",
+            f"[{BRAND_STYLE}]Welcome to TradingAgents-Energy CLI[/{BRAND_STYLE}]\n"
+            f"[dim]© [Tauric Research & Jakub Kolar](https://github.com/JackPieCZ/TradingAgents-private)[/dim]",
+            title="Welcome to TradingAgents-Energy CLI",
+            border_style=BRAND_COLOR,
             padding=(1, 2),
             expand=True,
         )
@@ -295,17 +275,14 @@ def update_display(layout, spinner_text=None, stats_handler=None, start_time=Non
         padding=(0, 2),  # Add horizontal padding
         expand=True,  # Make table expand to fill available space
     )
-    progress_table.add_column("Team", style="cyan", justify="center", width=20)
-    progress_table.add_column("Agent", style="green", justify="center", width=20)
+    progress_table.add_column("Team", style="cyan", justify="center", width=18)
+    progress_table.add_column("Agent", style="green", justify="center", width=26)
     progress_table.add_column("Status", style="yellow", justify="center", width=20)
 
     # Group agents by team - filter to only include agents in agent_status
     all_teams = {
         "Analyst Team": [
-            "Market Analyst",
-            "Social Analyst",
-            "News Analyst",
-            "Fundamentals Analyst",
+            ANALYST_AGENT_NAMES[key] for key in ANALYST_ORDER
         ],
         "Research Team": ["Bull Researcher", "Bear Researcher", "Research Manager"],
         "Trading Team": ["Trader"],
@@ -323,6 +300,9 @@ def update_display(layout, spinner_text=None, stats_handler=None, start_time=Non
     for team, agents in teams.items():
         # Add first agent with team name
         first_agent = agents[0]
+        # Format the agent name for display by stripping ' Analyst' if present
+        first_agent_display = first_agent.replace(" Analyst", "")
+        
         status = message_buffer.agent_status.get(first_agent, "pending")
         if status == "in_progress":
             spinner = Spinner(
@@ -336,10 +316,13 @@ def update_display(layout, spinner_text=None, stats_handler=None, start_time=Non
                 "error": "red",
             }.get(status, "white")
             status_cell = f"[{status_color}]{status}[/{status_color}]"
-        progress_table.add_row(team, first_agent, status_cell)
+        progress_table.add_row(team, first_agent_display, status_cell)
 
         # Add remaining agents in team
         for agent in agents[1:]:
+            # Format the agent name for display
+            agent_display = agent.replace(" Analyst", "")
+            
             status = message_buffer.agent_status.get(agent, "pending")
             if status == "in_progress":
                 spinner = Spinner(
@@ -353,13 +336,13 @@ def update_display(layout, spinner_text=None, stats_handler=None, start_time=Non
                     "error": "red",
                 }.get(status, "white")
                 status_cell = f"[{status_color}]{status}[/{status_color}]"
-            progress_table.add_row("", agent, status_cell)
+            progress_table.add_row("", agent_display, status_cell)
 
         # Add horizontal line after each team
-        progress_table.add_row("─" * 20, "─" * 20, "─" * 20, style="dim")
+        progress_table.add_row("─" * 16, "─" * 24, "─" * 18, style="dim")
 
     layout["progress"].update(
-        Panel(progress_table, title="Progress", border_style="cyan", padding=(1, 2))
+        Panel(progress_table, title="Progress", border_style="cyan", padding=(0, 2))
     )
 
     # Messages panel showing recent messages and tool calls
@@ -373,7 +356,7 @@ def update_display(layout, spinner_text=None, stats_handler=None, start_time=Non
         padding=(0, 1),  # Add some padding between columns
     )
     messages_table.add_column("Time", style="cyan", width=8, justify="center")
-    messages_table.add_column("Type", style="green", width=10, justify="center")
+    messages_table.add_column("Type", style=BRAND_COLOR, width=10, justify="center")
     messages_table.add_column(
         "Content", style="white", no_wrap=False, ratio=1
     )  # Make content column expand
@@ -423,7 +406,7 @@ def update_display(layout, spinner_text=None, stats_handler=None, start_time=Non
             Panel(
                 Markdown(message_buffer.current_report),
                 title="Current Report",
-                border_style="green",
+                border_style=BRAND_COLOR,
                 padding=(1, 2),
             )
         )
@@ -432,7 +415,7 @@ def update_display(layout, spinner_text=None, stats_handler=None, start_time=Non
             Panel(
                 "[italic]Waiting for analysis report...[/italic]",
                 title="Current Report",
-                border_style="green",
+                border_style=BRAND_COLOR,
                 padding=(1, 2),
             )
         )
@@ -487,20 +470,21 @@ def get_user_selections():
 
     # Create welcome box content
     welcome_content = f"{welcome_ascii}\n"
-    welcome_content += "[bold green]TradingAgents: Multi-Agents LLM Financial Trading Framework - CLI[/bold green]\n\n"
+    welcome_content += f"[{BRAND_STYLE}]TradingAgents Energy: Multi-Agents LLM-Powered Trading Framework - CLI[/{BRAND_STYLE}]\n\n"
     welcome_content += "[bold]Workflow Steps:[/bold]\n"
     welcome_content += "I. Analyst Team → II. Research Team → III. Trader → IV. Risk Management → V. Portfolio Management\n\n"
     welcome_content += (
-        "[dim]Built by [Tauric Research](https://github.com/TauricResearch)[/dim]"
+        "[dim]Adapted from [TauricResearch/TradingAgents](https://github.com/TauricResearch/TradingAgents) "
+        "for European electricity intraday markets[/dim]"
     )
 
     # Create and center the welcome box
     welcome_box = Panel(
         welcome_content,
-        border_style="green",
+        border_style=BRAND_COLOR,
         padding=(1, 2),
-        title="Welcome to TradingAgents",
-        subtitle="Multi-Agents LLM Financial Trading Framework",
+        title="TradingAgents-Energy",
+        subtitle="Multi-Agents LLM European Electricity Intraday Trading Framework",
     )
     console.print(Align.center(welcome_box))
     console.print()
@@ -516,28 +500,49 @@ def get_user_selections():
         box_content += f"[dim]{prompt}[/dim]"
         if default:
             box_content += f"\n[dim]Default: {default}[/dim]"
-        return Panel(box_content, border_style="blue", padding=(1, 2))
+        return Panel(box_content, border_style="yellow", padding=(1, 2))
 
-    # Step 1: Ticker symbol
-    console.print(
-        create_question_box(
-            "Step 1: Ticker Symbol",
-            "Enter the exact ticker symbol to analyze, including exchange suffix when needed (examples: SPY, CNC.TO, 7203.T, 0700.HK)",
-            "SPY",
-        )
-    )
-    selected_ticker = get_ticker()
-
-    # Step 2: Analysis date
+    # Step 1: Delivery Date (replaces Ticker Symbol)
     default_date = datetime.datetime.now().strftime("%Y-%m-%d")
     console.print(
         create_question_box(
-            "Step 2: Analysis Date",
-            "Enter the analysis date (YYYY-MM-DD)",
+            "Step 1a: Delivery Date",
+            "Enter the delivery date to analyze (YYYY-MM-DD). "
+            "This is the date whose delivery periods the agents will assess.",
             default_date,
         )
     )
-    analysis_date = get_analysis_date()
+    delivery_date = get_delivery_date()
+    console.print(
+        f"[{BRAND_COLOR}]Selected delivery date:[/{BRAND_COLOR}] {delivery_date}"
+    )
+
+    # Step 1b: Market Area
+    console.print(
+        create_question_box(
+            "Step 1b: Market Area",
+            "Select the bidding zone to analyze",
+        )
+    )
+    market_area = select_market_area()
+    console.print(
+        f"[{BRAND_COLOR}]Selected market area:[/{BRAND_COLOR}] {market_area}"
+    )
+
+    # Step 2: Trade Timestamp
+    default_timestamp = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M")
+    console.print(
+        create_question_box(
+            "Step 2: Trade Timestamp",
+            "Enter the analysis/trading timestamp (YYYY-MM-DDTHH:MM). "
+            "This is 'now' — the point from which the agents analyze.",
+            default_timestamp,
+        )
+    )
+    trade_timestamp = get_trade_timestamp()
+    console.print(
+        f"[{BRAND_COLOR}]Selected trade timestamp:[/{BRAND_COLOR}] {trade_timestamp}"
+    )
 
     # Step 3: Output language
     console.print(
@@ -556,7 +561,7 @@ def get_user_selections():
     )
     selected_analysts = select_analysts()
     console.print(
-        f"[green]Selected analysts:[/green] {', '.join(analyst.value for analyst in selected_analysts)}"
+        f"[{BRAND_COLOR}]Selected analysts:[/{BRAND_COLOR}] {', '.join(analyst.name.lower().capitalize() for analyst in selected_analysts)}"
     )
 
     # Step 5: Research depth
@@ -566,6 +571,9 @@ def get_user_selections():
         )
     )
     selected_research_depth = select_research_depth()
+    console.print(
+        f"[{BRAND_COLOR}]Selected research depth:[/{BRAND_COLOR}] {selected_research_depth}"
+    )
 
     # Step 6: LLM Provider
     console.print(
@@ -574,6 +582,9 @@ def get_user_selections():
         )
     )
     selected_llm_provider, backend_url = select_llm_provider()
+    console.print(
+        f"[{BRAND_COLOR}]Selected LLM provider:[/{BRAND_COLOR}] {selected_llm_provider}"
+    )
 
     # Step 7: Thinking agents
     console.print(
@@ -583,6 +594,9 @@ def get_user_selections():
     )
     selected_shallow_thinker = select_shallow_thinking_agent(selected_llm_provider)
     selected_deep_thinker = select_deep_thinking_agent(selected_llm_provider)
+    console.print(
+        f"[{BRAND_COLOR}]Selected models:[/{BRAND_COLOR}] Shallow thinker: {selected_shallow_thinker}, Deep thinker: {selected_deep_thinker}"
+    )
 
     # Step 8: Provider-specific thinking configuration
     thinking_level = None
@@ -615,9 +629,14 @@ def get_user_selections():
         )
         anthropic_effort = ask_anthropic_effort()
 
+    console.print(
+        f"[{BRAND_COLOR}]Selected thinking level:[/{BRAND_COLOR}] {thinking_level or reasoning_effort or anthropic_effort}"
+    )
+
     return {
-        "ticker": selected_ticker,
-        "analysis_date": analysis_date,
+        "delivery_date": delivery_date,
+        "market_area": market_area,
+        "trade_timestamp": trade_timestamp,
         "analysts": selected_analysts,
         "research_depth": selected_research_depth,
         "llm_provider": selected_llm_provider.lower(),
@@ -634,6 +653,56 @@ def get_user_selections():
 def get_ticker():
     """Get ticker symbol from user input."""
     return typer.prompt("", default="SPY")
+
+
+def get_delivery_date():
+    """Get delivery date from user input."""
+    while True:
+        date_str = typer.prompt(
+            "", default=datetime.datetime.now().strftime("%Y-%m-%d")
+        )
+        try:
+            datetime.datetime.strptime(date_str, "%Y-%m-%d")
+            return date_str
+        except ValueError:
+            console.print("[red]Invalid format. Use YYYY-MM-DD.[/red]")
+
+
+def select_market_area() -> str:
+    """Select market area (bidding zone)."""
+
+    # Define market area options with their corresponding values
+    ZONE_OPTIONS = [
+        ("1. CZ  (Czech Republic — OTE)", "CZ"),
+        ("2. DE-LU  (Germany/Luxembourg — EPEX)", "DE-LU"),
+    ]
+
+    choice = questionary.select(
+        "Select market area (bidding zone):",
+        choices=[
+            questionary.Choice(display, value=value) for display, value in ZONE_OPTIONS
+        ],
+        instruction="\n- Use arrow keys to navigate\n- Press Enter to select",
+        style=questionary.Style(
+            [
+                ("selected", "fg:yellow noinherit"),
+                ("highlighted", "fg:yellow noinherit"),
+                ("pointer", "fg:yellow noinherit"),
+            ]
+        ),
+    ).ask()
+
+    if choice is None:
+        console.print("\n[red]No market area selected. Exiting...[/red]")
+        exit(1)
+
+    return choice
+
+
+def get_trade_timestamp():
+    """Get trade timestamp from user input."""
+    default = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M")
+    return typer.prompt("", default=default)
 
 
 def get_analysis_date():
@@ -666,19 +735,19 @@ def save_report_to_disk(final_state, ticker: str, save_path: Path):
     if final_state.get("market_report"):
         analysts_dir.mkdir(exist_ok=True)
         (analysts_dir / "market.md").write_text(final_state["market_report"], encoding="utf-8")
-        analyst_parts.append(("Market Analyst", final_state["market_report"]))
+        analyst_parts.append(("Price & Technical Analyst", final_state["market_report"]))
     if final_state.get("sentiment_report"):
         analysts_dir.mkdir(exist_ok=True)
         (analysts_dir / "sentiment.md").write_text(final_state["sentiment_report"], encoding="utf-8")
-        analyst_parts.append(("Social Analyst", final_state["sentiment_report"]))
+        analyst_parts.append(("System State Analyst", final_state["sentiment_report"]))
     if final_state.get("news_report"):
         analysts_dir.mkdir(exist_ok=True)
         (analysts_dir / "news.md").write_text(final_state["news_report"], encoding="utf-8")
-        analyst_parts.append(("News Analyst", final_state["news_report"]))
+        analyst_parts.append(("Energy News & Regulatory Analyst", final_state["news_report"]))
     if final_state.get("fundamentals_report"):
         analysts_dir.mkdir(exist_ok=True)
-        (analysts_dir / "fundamentals.md").write_text(final_state["fundamentals_report"], encoding="utf-8")
-        analyst_parts.append(("Fundamentals Analyst", final_state["fundamentals_report"]))
+        (analysts_dir / "weather.md").write_text(final_state["fundamentals_report"], encoding="utf-8")
+        analyst_parts.append(("Weather & Forecast Analyst", final_state["fundamentals_report"]))
     if analyst_parts:
         content = "\n\n".join(f"### {name}\n{text}" for name, text in analyst_parts)
         sections.append(f"## I. Analyst Team Reports\n\n{content}")
@@ -740,7 +809,14 @@ def save_report_to_disk(final_state, ticker: str, save_path: Path):
             sections.append(f"## V. Portfolio Manager Decision\n\n### Portfolio Manager\n{risk['judge_decision']}")
 
     # Write consolidated report
-    header = f"# Trading Analysis Report: {ticker}\n\nGenerated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+    # header = f"# Trading Analysis Report: {ticker}\n\nGenerated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+    header = (
+        f"# Energy Trading Analysis Report\n\n"
+        f"Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"Market Area: {final_state.get('market_area', 'N/A')}\n"
+        f"Delivery Period: {final_state.get('delivery_period', 'N/A')}\n"
+        f"Regime: {final_state.get('regime_indicator', 'N/A')}\n\n"
+    )
     (save_path / "complete_report.md").write_text(header + "\n\n".join(sections), encoding="utf-8")
     return save_path / "complete_report.md"
 
@@ -748,18 +824,18 @@ def save_report_to_disk(final_state, ticker: str, save_path: Path):
 def display_complete_report(final_state):
     """Display the complete analysis report sequentially (avoids truncation)."""
     console.print()
-    console.print(Rule("Complete Analysis Report", style="bold green"))
+    console.print(Rule("Complete Analysis Report", style=BRAND_STYLE))
 
     # I. Analyst Team Reports
     analysts = []
     if final_state.get("market_report"):
-        analysts.append(("Market Analyst", final_state["market_report"]))
+        analysts.append(("Price & Technical Analyst", final_state["market_report"]))
     if final_state.get("sentiment_report"):
-        analysts.append(("Social Analyst", final_state["sentiment_report"]))
+        analysts.append(("System State Analyst", final_state["sentiment_report"]))
     if final_state.get("news_report"):
-        analysts.append(("News Analyst", final_state["news_report"]))
+        analysts.append(("Energy News & Regulatory Analyst", final_state["news_report"]))
     if final_state.get("fundamentals_report"):
-        analysts.append(("Fundamentals Analyst", final_state["fundamentals_report"]))
+        analysts.append(("Weather & Forecast Analyst", final_state["fundamentals_report"]))
     if analysts:
         console.print(Panel("[bold]I. Analyst Team Reports[/bold]", border_style="cyan"))
         for title, content in analysts:
@@ -783,7 +859,8 @@ def display_complete_report(final_state):
     # III. Trading Team
     if final_state.get("trader_investment_plan"):
         console.print(Panel("[bold]III. Trading Team Plan[/bold]", border_style="yellow"))
-        console.print(Panel(Markdown(final_state["trader_investment_plan"]), title="Trader", border_style="blue", padding=(1, 2)))
+        console.print(Panel(Markdown(final_state["trader_investment_plan"]),
+                      title="Trader", border_style="blue", padding=(1, 2)))
 
     # IV. Risk Management Team
     if final_state.get("risk_debate_state"):
@@ -802,8 +879,9 @@ def display_complete_report(final_state):
 
         # V. Portfolio Manager Decision
         if risk.get("judge_decision"):
-            console.print(Panel("[bold]V. Portfolio Manager Decision[/bold]", border_style="green"))
-            console.print(Panel(Markdown(risk["judge_decision"]), title="Portfolio Manager", border_style="blue", padding=(1, 2)))
+            console.print(Panel("[bold]V. Portfolio Manager Decision[/bold]", border_style=BRAND_COLOR))
+            console.print(Panel(Markdown(risk["judge_decision"]),
+                          title="Portfolio Manager", border_style="blue", padding=(1, 2)))
 
 
 def update_research_team_status(status):
@@ -814,12 +892,12 @@ def update_research_team_status(status):
 
 
 # Ordered list of analysts for status transitions
-ANALYST_ORDER = ["market", "social", "news", "fundamentals"]
+ANALYST_ORDER = ["fundamentals", "social", "news", "market"]
 ANALYST_AGENT_NAMES = {
-    "market": "Market Analyst",
-    "social": "Social Analyst",
-    "news": "News Analyst",
-    "fundamentals": "Fundamentals Analyst",
+    "market": "Price & Technical Analyst",
+    "social": "System State Analyst",
+    "news": "Energy News & Regulatory Analyst",
+    "fundamentals": "Weather & Forecast Analyst",
 }
 ANALYST_REPORT_MAP = {
     "market": "market_report",
@@ -869,6 +947,7 @@ def update_analyst_statuses(message_buffer, chunk):
     if not found_active and selected:
         if message_buffer.agent_status.get("Bull Researcher") == "pending":
             message_buffer.update_agent_status("Bull Researcher", "in_progress")
+
 
 def extract_content_string(content):
     """Extract string content from various message formats.
@@ -945,12 +1024,16 @@ def format_tool_args(args, max_length=80) -> str:
         return result[:max_length - 3] + "..."
     return result
 
+
 def run_analysis(checkpoint: bool = False):
     # First get all user selections
     selections = get_user_selections()
 
     # Create config with selected research depth
     config = DEFAULT_CONFIG.copy()
+    config["market_area"] = selections["market_area"]
+    config["delivery_date"] = selections["delivery_date"]
+    config["trade_timestamp"] = selections["trade_timestamp"]
     config["max_debate_rounds"] = selections["research_depth"]
     config["max_risk_discuss_rounds"] = selections["research_depth"]
     config["quick_think_llm"] = selections["shallow_thinker"]
@@ -968,7 +1051,7 @@ def run_analysis(checkpoint: bool = False):
     stats_handler = StatsCallbackHandler()
 
     # Normalize analyst selection to predefined order (selection is a 'set', order is fixed)
-    selected_set = {analyst.value for analyst in selections["analysts"]}
+    selected_set = {analyst.name.lower() for analyst in selections["analysts"]}
     selected_analyst_keys = [a for a in ANALYST_ORDER if a in selected_set]
 
     # Initialize the graph with callbacks bound to LLMs
@@ -986,7 +1069,11 @@ def run_analysis(checkpoint: bool = False):
     start_time = time.time()
 
     # Create result directory
-    results_dir = Path(config["results_dir"]) / selections["ticker"] / selections["analysis_date"]
+    # results_dir = Path(config["results_dir"]) / selections["ticker"] / selections["analysis_date"]
+    results_dir = (Path(config["results_dir"])
+                   / selections["market_area"]
+                   / selections["delivery_date"]
+                   / selections["trade_timestamp"].replace(":", ""))
     results_dir.mkdir(parents=True, exist_ok=True)
     report_dir = results_dir / "reports"
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -1001,12 +1088,12 @@ def run_analysis(checkpoint: bool = False):
     # Strip existing stream handlers to prevent console pollution
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
-        
+
     # Send all logs into the file instead
     run_log_file = results_dir / "run.log"
     file_handler = logging.FileHandler(run_log_file, encoding="utf-8")
     file_handler.setFormatter(logging.Formatter(
-        "[%(levelname)s] %(asctime)s - %(name)s - %(message)s", 
+        "[%(levelname)s] %(asctime)s - %(name)s - %(message)s",
         datefmt="%H:%M:%S"
     ))
     root_logger.addHandler(file_handler)
@@ -1014,6 +1101,7 @@ def run_analysis(checkpoint: bool = False):
 
     def save_message_decorator(obj, func_name):
         func = getattr(obj, func_name)
+
         @wraps(func)
         def wrapper(*args, **kwargs):
             func(*args, **kwargs)
@@ -1022,9 +1110,10 @@ def run_analysis(checkpoint: bool = False):
             with open(log_file, "a", encoding="utf-8") as f:
                 f.write(f"{timestamp} [{message_type}] {content}\n")
         return wrapper
-    
+
     def save_tool_call_decorator(obj, func_name):
         func = getattr(obj, func_name)
+
         @wraps(func)
         def wrapper(*args, **kwargs):
             func(*args, **kwargs)
@@ -1036,6 +1125,7 @@ def run_analysis(checkpoint: bool = False):
 
     def save_report_section_decorator(obj, func_name):
         func = getattr(obj, func_name)
+
         @wraps(func)
         def wrapper(section_name, content):
             func(section_name, content)
@@ -1060,30 +1150,33 @@ def run_analysis(checkpoint: bool = False):
         update_display(layout, stats_handler=stats_handler, start_time=start_time)
 
         # Add initial messages
-        message_buffer.add_message("System", f"Selected ticker: {selections['ticker']}")
-        message_buffer.add_message(
-            "System", f"Analysis date: {selections['analysis_date']}"
-        )
+        message_buffer.add_message("System", f"Delivery date: {selections['delivery_date']}")
+        message_buffer.add_message("System", f"Market area: {selections['market_area']}")
+        message_buffer.add_message("System", f"Trade timestamp: {selections['trade_timestamp']}")
         message_buffer.add_message(
             "System",
-            f"Selected analysts: {', '.join(analyst.value for analyst in selections['analysts'])}",
+            f"Selected analysts: {', '.join(analyst.name.lower().capitalize() for analyst in selections['analysts'])}",
         )
         update_display(layout, stats_handler=stats_handler, start_time=start_time)
 
         # Update agent status to in_progress for the first analyst
-        first_analyst = f"{selections['analysts'][0].value.capitalize()} Analyst"
+        first_analyst_key = selections['analysts'][0].name.lower()
+        first_analyst = ANALYST_AGENT_NAMES.get(first_analyst_key, f"{first_analyst_key.capitalize()} Analyst")
         message_buffer.update_agent_status(first_analyst, "in_progress")
         update_display(layout, stats_handler=stats_handler, start_time=start_time)
 
         # Create spinner text
         spinner_text = (
-            f"Analyzing {selections['ticker']} on {selections['analysis_date']}..."
+            f"Analyzing {selections['market_area']} delivery {selections['delivery_date']} "
+            f"as of {selections['trade_timestamp']}..."
         )
         update_display(layout, spinner_text, stats_handler=stats_handler, start_time=start_time)
 
         # Initialize state and get graph args with callbacks
         init_agent_state = graph.propagator.create_initial_state(
-            selections["ticker"], selections["analysis_date"]
+            delivery_period=selections["delivery_date"],
+            trade_timestamp=selections["trade_timestamp"],
+            market_area=selections["market_area"],
         )
         # Pass callbacks to graph config for tool execution tracking
         # (LLM tracking is handled separately via LLM constructor)
@@ -1199,7 +1292,7 @@ def run_analysis(checkpoint: bool = False):
             message_buffer.update_agent_status(agent, "completed")
 
         message_buffer.add_message(
-            "System", f"Completed analysis for {selections['analysis_date']}"
+            "System", f"Completed analysis for {selections['delivery_date']}"
         )
 
         # Update final report sections
@@ -1216,14 +1309,21 @@ def run_analysis(checkpoint: bool = False):
     save_choice = typer.prompt("Save report?", default="Y").strip().upper()
     if save_choice in ("Y", "YES"):
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        default_path = Path.cwd() / "reports" / f"{selections['ticker']}_{timestamp}"
+        # default_path = Path.cwd() / "reports" / f"{selections['ticker']}_{timestamp}"
+        default_path = (Path.cwd() / "reports"
+                        / f"{selections['market_area']}_{selections['delivery_date']}_{timestamp}")
         save_path_str = typer.prompt(
             "Save path (press Enter for default)",
             default=str(default_path)
         ).strip()
         save_path = Path(save_path_str)
         try:
-            report_file = save_report_to_disk(final_state, selections["ticker"], save_path)
+            # report_file = save_report_to_disk(final_state, selections["ticker"], save_path)
+            report_file = save_report_to_disk(
+                final_state,
+                f"{selections['market_area']}_{selections['delivery_date']}",
+                save_path,
+            )
             console.print(f"\n[green]✓ Report saved to:[/green] {save_path.resolve()}")
             console.print(f"  [dim]Complete report:[/dim] {report_file.name}")
         except Exception as e:

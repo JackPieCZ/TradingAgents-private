@@ -1,30 +1,6 @@
 import logging
 from typing import Annotated
 
-# Import from vendor-specific modules
-from .y_finance import (
-    get_YFin_data_online,
-    get_stock_stats_indicators_window,
-    get_fundamentals as get_yfinance_fundamentals,
-    get_balance_sheet as get_yfinance_balance_sheet,
-    get_cashflow as get_yfinance_cashflow,
-    get_income_statement as get_yfinance_income_statement,
-    get_insider_transactions as get_yfinance_insider_transactions,
-)
-from .yfinance_news import get_news_yfinance, get_global_news_yfinance
-from .alpha_vantage import (
-    get_stock as get_alpha_vantage_stock,
-    get_indicator as get_alpha_vantage_indicator,
-    get_fundamentals as get_alpha_vantage_fundamentals,
-    get_balance_sheet as get_alpha_vantage_balance_sheet,
-    get_cashflow as get_alpha_vantage_cashflow,
-    get_income_statement as get_alpha_vantage_income_statement,
-    get_insider_transactions as get_alpha_vantage_insider_transactions,
-    get_news as get_alpha_vantage_news,
-    get_global_news as get_alpha_vantage_global_news,
-)
-from .alpha_vantage_common import AlphaVantageRateLimitError
-
 # Energy data imports
 from .entsoe_client import (
     query_day_ahead_prices as entsoe_da_prices,
@@ -74,36 +50,6 @@ logger = logging.getLogger(__name__)
 
 # Tools organized by category
 TOOLS_CATEGORIES = {
-    "core_stock_apis": {
-        "description": "OHLCV stock price data",
-        "tools": [
-            "get_stock_data"
-        ]
-    },
-    "technical_indicators": {
-        "description": "Technical analysis indicators",
-        "tools": [
-            "get_indicators"
-        ]
-    },
-    "fundamental_data": {
-        "description": "Company fundamentals",
-        "tools": [
-            "get_fundamentals",
-            "get_balance_sheet",
-            "get_cashflow",
-            "get_income_statement"
-        ]
-    },
-    "news_data": {
-        "description": "News and insider data",
-        "tools": [
-            "get_news",
-            "get_global_news",
-            "get_insider_transactions",
-            "get_outage_notifications"
-        ]
-    },
     # Energy market data categories
     "price_data": {
         "description": "Electricity price data (day-ahead, intraday continuous, intraday auction)",
@@ -156,47 +102,6 @@ VENDOR_LIST = [
 
 # Mapping of methods to their vendor-specific implementations
 VENDOR_METHODS = {
-    # core_stock_apis
-    "get_stock_data": {
-        "alpha_vantage": get_alpha_vantage_stock,
-        "yfinance": get_YFin_data_online,
-    },
-    # technical_indicators
-    "get_indicators": {
-        "alpha_vantage": get_alpha_vantage_indicator,
-        "yfinance": get_stock_stats_indicators_window,
-    },
-    # fundamental_data
-    "get_fundamentals": {
-        "alpha_vantage": get_alpha_vantage_fundamentals,
-        "yfinance": get_yfinance_fundamentals,
-    },
-    "get_balance_sheet": {
-        "alpha_vantage": get_alpha_vantage_balance_sheet,
-        "yfinance": get_yfinance_balance_sheet,
-    },
-    "get_cashflow": {
-        "alpha_vantage": get_alpha_vantage_cashflow,
-        "yfinance": get_yfinance_cashflow,
-    },
-    "get_income_statement": {
-        "alpha_vantage": get_alpha_vantage_income_statement,
-        "yfinance": get_yfinance_income_statement,
-    },
-    # news_data (stock)
-    "get_news": {
-        "alpha_vantage": get_alpha_vantage_news,
-        "yfinance": get_news_yfinance,
-    },
-    "get_global_news": {
-        "yfinance": get_global_news_yfinance,
-        "alpha_vantage": get_alpha_vantage_global_news,
-    },
-    "get_insider_transactions": {
-        "alpha_vantage": get_alpha_vantage_insider_transactions,
-        "yfinance": get_yfinance_insider_transactions,
-    },
-
     # price_data (energy)
     "get_day_ahead_prices": {
         "entsoe": entsoe_da_prices,
@@ -303,7 +208,7 @@ def get_vendor(category: str, method: str = None, market_area: str = None) -> st
 def route_to_vendor(method: str, *args, **kwargs):
     """Route method calls to appropriate vendor implementation with fallback support."""
     logger.info(f"Executing tool call: {method} | args: {args} | kwargs: {kwargs}")
-    
+
     category = get_category_for_method(method)
 
     # Try to extract market_area from kwargs to support market-aware routing
@@ -333,11 +238,47 @@ def route_to_vendor(method: str, *args, **kwargs):
 
         try:
             return impl_func(*args, **kwargs)
-        except AlphaVantageRateLimitError:
-            logger.warning(f"Rate limit hit for {vendor}. Falling back.")
-            continue  # Fallback to next vendor
         except Exception as e:
             logger.warning(f"Vendor {vendor} failed for '{method}': {str(e)}. Falling back.")
             continue  # Catch generic energy API failures and trigger fallback
 
     raise RuntimeError(f"No available vendor for '{method}'")
+
+
+def route_to_all_vendors(method: str, *args, **kwargs) -> str:
+    """Call a tool method against ALL available vendors and return merged results.
+
+    Each vendor's output is labeled with the vendor name. If a vendor fails,
+    its section shows the error message instead of data. This is used for
+    cross-referencing — analysts can compare data from multiple sources to
+    detect discrepancies, validate signals, and improve confidence.
+
+    Returns:
+        A string with labeled sections for each vendor's response.
+    """
+    logger.info(f"Cross-referencing all vendors for: {method} | args: {args} | kwargs: {kwargs}")
+
+    if method not in VENDOR_METHODS:
+        raise ValueError(f"Method '{method}' not supported")
+
+    available_vendors = VENDOR_METHODS[method]
+    results_parts = []
+
+    for vendor_name, vendor_impl in available_vendors.items():
+        impl_func = vendor_impl[0] if isinstance(vendor_impl, list) else vendor_impl
+        try:
+            result = impl_func(*args, **kwargs)
+            results_parts.append(
+                f"# Source: {vendor_name.upper()}\n{result}"
+            )
+        except Exception as e:
+            results_parts.append(
+                f"# Source: {vendor_name.upper()}\n# ERROR: {str(e)}"
+            )
+            logger.warning(f"Vendor {vendor_name} failed for '{method}': {e}")
+
+    if not results_parts:
+        return f"# No vendors available for {method}"
+
+    header = f"# Cross-reference: {method} ({len(results_parts)} sources)\n"
+    return header + "\n\n".join(results_parts)
